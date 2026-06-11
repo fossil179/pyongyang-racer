@@ -1,0 +1,12 @@
+services:
+  pyongyang-racer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    platform: linux/amd64
+    ports:
+      - "6080:6080"
+    environment:
+      - VNC_PASSWORD=${VNC_PASSWORD:-pyongyang}
+    restart: unless-stopped
+    shm_size: "256mb"

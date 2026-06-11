@@ -26,10 +26,12 @@ if [[ -d "$ROOT/tools/Flash Player.app" ]]; then
 else
   echo "Downloading Adobe Flash Player..."
   tmp_dmg="$(mktemp -t flashplayer.XXXXXX).dmg"
+  mount_point="$(mktemp -d /tmp/flashplayer-mount.XXXXXX)"
   curl -fsSL "$DMG_URL" -o "$tmp_dmg"
-  mount_point="$(hdiutil attach "$tmp_dmg" -nobrowse | awk 'END {print $3}')"
+  hdiutil attach "$tmp_dmg" -nobrowse -mountpoint "$mount_point" >/dev/null
   cp -R "$mount_point/Flash Player.app" "$RES/"
   hdiutil detach "$mount_point" -quiet
+  rmdir "$mount_point"
   rm -f "$tmp_dmg"
 fi
 

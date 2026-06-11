@@ -1,0 +1,14 @@
+.git
+.github
+tools
+Pyongyang Racer.app
+Pyongyang-Racer-Mac*
+__MACOSX
+*.zip
+*.pdf
+ruffle
+racer_images
+*.html
+*.css
+Scripts
+docker-compose.override.yml

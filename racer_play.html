@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Pyongyang Racer — Full Graphics</title>
+<link rel="icon" type="image/jpg" href="racer_images/koryotours_top_icon.jpg" />
+<link type="text/css" href="racer.css" rel="stylesheet" />
+<style>
+  #playbox { width:760px; height:600px; border:0; background:#000; }
+  #setup { max-width:760px; margin:12px 0; padding:12px; background:#eef6ff; font-size:12px; line-height:1.5; }
+  #setup code { background:#fff; padding:1px 4px; }
+</style>
+</head>
+<body>
+<div id="wrapper">
+  <div id="header"><a href="racer.html"><img src="racer_images/racer_header.png" width="900" height="100" border="0" /></a></div>
+  <div id="navigation"><strong>| <a href="racer.html" class="a4">PLAY THE GAME</a> | <a href="racer_play.html" class="a2">FULL GRAPHICS</a> | <a href="racer_about.html" class="a4">ABOUT</a> |</strong></div>
+  <div id="leftcolumn"><img src="racer_images/border.jpg" width="43" height="600" /></div>
+  <div id="content">
+    <div id="setup">
+      <strong>Full graphics version</strong> — real Adobe Flash Player streamed via noVNC.
+      Set your server URL in <code>racer_play.html</code> (search for <code>PLAY_SERVER</code>),
+      or open <code>http://YOUR_SERVER_IP:6080/vnc.html</code> directly.
+      VNC password default: <code>pyongyang</code>
+    </div>
+    <iframe id="playbox" title="Pyongyang Racer"></iframe>
+    <script>
+      // Set this to your Oracle Cloud server after running oracle/deploy.sh
+      var PLAY_SERVER = "";
+      var frame = document.getElementById("playbox");
+      if (PLAY_SERVER) {
+        frame.src = PLAY_SERVER.replace(/\/$/, "") + "/vnc.html?autoconnect=1&resize=scale";
+      } else {
+        frame.style.display = "none";
+        document.getElementById("setup").innerHTML +=
+          "<p><strong>Server not configured yet.</strong> Follow <code>oracle/README.md</code> to deploy, then set <code>PLAY_SERVER</code> in this file.</p>";
+      }
+    </script>
+  </div>
+  <div id="rightcolumn"><img src="racer_images/border2.jpg" width="43" height="600" /></div>
+  <div id="footer"><span class="a">| Pyongyang Racer — full Flash play via noVNC |</span></div>
+</div>
+</body>
+</html>
