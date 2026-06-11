@@ -7,7 +7,7 @@ services:
     ports:
       - "6080:6080"
     env_file:
-      - docker/.env
+      - .env
     environment:
       - VNC_PASSWORD=${VNC_PASSWORD:-pyongyang}
     restart: unless-stopped
