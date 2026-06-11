@@ -41,6 +41,10 @@ To upgrade on GCP: stop VM → change machine type to **e2-small** → start →
 - **Chrome or Firefox** (latest) generally perform best
 - Don't resize the VNC window larger than 800×600 — scaling adds work
 
+## Audio
+
+**There is no sound in the browser version.** Standard VNC/noVNC carries video and keyboard/mouse only — it cannot stream Flash game audio to your browser. The Mac app (`play-correct.sh` or `Pyongyang-Racer.app.zip`) includes sound.
+
 ## Measuring
 
 On the VM:

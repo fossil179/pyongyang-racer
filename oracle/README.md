@@ -57,6 +57,22 @@ VNC_PASSWORD='your-secret' ./oracle/deploy.sh
 
 ## Troubleshooting
 
+**"Failed to connect to downstream server" (code 1011)**  
+noVNC is up but x11vnc is not listening yet. Pull latest code and redeploy:
+```bash
+git pull && ./oracle/deploy.sh
+```
+
+**"password check failed"**  
+The password may have changed from `pyongyang`. On the VM:
+```bash
+cat ~/pyongyang-racer/docker/.vnc-password
+```
+Or set a known password: `VNC_PASSWORD=pyongyang ./oracle/deploy.sh`
+
+**No sound**  
+Normal — VNC streams video only. Use the Mac app for sound.
+
 ```bash
 docker compose -f docker/docker-compose.yml logs -f
 docker compose -f docker/docker-compose.yml exec pyongyang-racer tail -f /var/log/supervisor/flash.log
