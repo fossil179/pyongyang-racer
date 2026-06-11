@@ -1,0 +1,67 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+<title>Pyongyang Racer | Koryo Tours</title>
+<link rel="icon" type="image/jpg" href="racer_images/koryotours_top_icon.jpg"  />
+<link type="text/css" href="racer.css" rel="stylesheet" />
+
+
+</head>
+
+<body>
+
+  <!-- Begin Wrapper -->
+<div id="wrapper">
+   
+         <!-- Begin Header -->
+  <div id="header"><a href="racer.html"><img src="racer_images/racer_header.png" width="900" height="100" border="0" /></a>
+
+</div>
+		 <!-- End Header -->
+		 
+		 <!-- Begin Navigation -->
+         <div id="navigation"><strong>| <a href="racer.html" class="a2">PLAY THE GAME</a> | <a href="racer_about.html" class="a4">ABOUT PYONGYANG RACER</a> | <a href="racer_top10.html" class="a4">TOP 10 CHAMPIONSHIP LIST</a> |</strong></div>
+		 <!-- End Navigation -->
+		 
+		 <!-- Begin Left Column -->
+		 <div id="leftcolumn"><img src="racer_images/border.jpg" width="43" height="500" /></div>
+		 <!-- End Left Column -->
+		 
+		 <!-- Begin Content Column -->
+         <div id="content">
+         <div id="game-container"></div>
+         <script src="ruffle/ruffle.js"></script>
+         <script>
+           window.RufflePlayer = window.RufflePlayer || {};
+           window.RufflePlayer.config = {
+             autoplay: "on",
+             unmuteOverlay: "hidden",
+             letterbox: "off",
+             warnOnUnsupportedContent: false
+           };
+           const ruffle = window.RufflePlayer.newest();
+           const player = ruffle.createPlayer();
+           player.style.width = "760px";
+           player.style.height = "500px";
+           document.getElementById("game-container").appendChild(player);
+           player.load("PY Racer_0509/PYracer.swf");
+         </script>
+         </div>
+		 <!-- End Content Column -->
+		 
+		 <!-- Begin Right Column -->
+		 <div id="rightcolumn"><img src="racer_images/border2.jpg" width="43" height="500" /></div>
+		 <!-- End Right Column -->
+		 
+		 <!-- Begin Footer -->
+<div id="footer"><span class="a">| This game was developed in the DPRK (North Korea) by Nosotek  - 2012 || </span><a href="http:/www.koryogroup.com" class="a"> Return back to Koryo Tours home page</a></div>
+		 <!-- End Footer -->
+		 
+</div>
+   <!-- End Wrapper -->
+
+</body>
+</html>
