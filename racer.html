@@ -32,15 +32,28 @@
 		 
 		 <!-- Begin Content Column -->
          <div id="content">
+         <p style="margin:0 0 6px 0;padding:6px 8px;background:#ffe8b3;color:#333;font-size:11px;line-height:1.4;">
+           Browser play uses the Ruffle Flash emulator. The 3D buildings may look wrong here.
+           For correct 3D graphics, see <a href="racer_about.html#correct-graphics">how to play locally</a>.
+         </p>
          <div id="game-container"></div>
          <script src="ruffle/ruffle.js"></script>
          <script>
            window.RufflePlayer = window.RufflePlayer || {};
+           const ruffleBase = (function () {
+             const script = document.currentScript.previousElementSibling;
+             const src = script && script.src ? script.src : "ruffle/ruffle.js";
+             return src.replace(/[^/]+$/, "");
+           })();
            window.RufflePlayer.config = {
+             publicPath: ruffleBase,
              autoplay: "on",
              unmuteOverlay: "hidden",
              letterbox: "off",
-             warnOnUnsupportedContent: false
+             warnOnUnsupportedContent: false,
+             splashScreen: false,
+             compatibilityRules: true,
+             preferredRenderer: "wgpu-webgl"
            };
            const ruffle = window.RufflePlayer.newest();
            const player = ruffle.createPlayer();
