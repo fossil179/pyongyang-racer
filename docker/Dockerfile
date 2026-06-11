@@ -25,7 +25,7 @@ RUN mkdir -p /opt/flash \
     && wget -qO /tmp/flash.tar.gz \
       "https://github.com/Grubsic/Adobe-Flash-Player-Debug-Downloads-Archive/raw/main/Linux/flash_player_sa_linux.x86_64.tar.gz" \
     && tar xzf /tmp/flash.tar.gz -C /opt/flash \
-    && chmod +x /opt/flash/flashplayer-sa \
+    && chmod +x /opt/flash/flashplayer \
     && rm /tmp/flash.tar.gz
 
 # Game files (JSON form required — source folder name contains a space)
