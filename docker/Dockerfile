@@ -28,8 +28,8 @@ RUN mkdir -p /opt/flash \
     && chmod +x /opt/flash/flashplayer-sa \
     && rm /tmp/flash.tar.gz
 
-# Game files
-COPY PY\ Racer_0509 /game/PY\ Racer_0509
+# Game files (JSON form required — source folder name contains a space)
+COPY ["PY Racer_0509", "/game/pyongyang"]
 COPY 1.dat common.dat sound.dat symbol.dat common.txt info.txt PreGame.mp3 /game/
 COPY photo /game/photo
 
