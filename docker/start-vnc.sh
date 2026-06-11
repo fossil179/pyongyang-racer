@@ -1,3 +1,6 @@
 #!/bin/bash
 sleep 2
-echo "${VNC_PASSWORD:-pyongyang}" | x11vnc -display :99 -forever -shared -rfbport 5900 -passwd /dev/stdin
+PASS="${VNC_PASSWORD:-pyongyang}"
+PASSFILE=/tmp/vncpass
+x11vnc -storepasswd "$PASS" "$PASSFILE"
+exec x11vnc -display :99 -forever -shared -rfbport 5900 -rfbauth "$PASSFILE"
