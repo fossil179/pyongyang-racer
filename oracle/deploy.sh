@@ -19,6 +19,8 @@ else
 fi
 chmod 600 "$PASS_FILE"
 export VNC_PASSWORD
+printf 'VNC_PASSWORD=%s\n' "$VNC_PASSWORD" > docker/.env
+chmod 600 docker/.env
 
 echo "==> Building container (linux/amd64, may take a few minutes)..."
 docker compose -f docker/docker-compose.yml build

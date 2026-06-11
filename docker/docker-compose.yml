@@ -6,8 +6,10 @@ services:
     platform: linux/amd64
     ports:
       - "6080:6080"
+    env_file:
+      - docker/.env
     environment:
-      - VNC_PASSWORD=${VNC_PASSWORD}
+      - VNC_PASSWORD=${VNC_PASSWORD:-pyongyang}
     restart: unless-stopped
     shm_size: "512mb"
     security_opt:

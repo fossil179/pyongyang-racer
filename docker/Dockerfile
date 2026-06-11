@@ -8,7 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     SCREEN_HEIGHT=600
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    xvfb x11vnc xdotool wget ca-certificates supervisor openssl \
+    xvfb x11vnc xdotool x11-utils wget ca-certificates supervisor openssl \
     libgtk2.0-0 libnss3 libxss1 libasound2 libdbus-glib-1-2 \
     libglu1-mesa libxi6 libxrender1 libxtst6 libfreetype6 \
     libxcursor1 libxrandr2 libcurl4 libgconf-2-4 libpango1.0-0 \
