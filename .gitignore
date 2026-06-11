@@ -5,12 +5,4 @@ Thumbs.db
 *.pdf
 /_notes/
 
-# Duplicate root-level assets (game files live in PY Racer_0509/)
-/1.dat
-/common.dat
-/sound.dat
-/symbol.dat
-/PreGame.mp3
-/info.txt
-/common.txt
 /photo/
