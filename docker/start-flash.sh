@@ -1,15 +1,16 @@
 #!/bin/bash
+# Same SWF + asset layout as the Mac app (build-mac-app.sh / play-correct.sh).
 export DISPLAY=:99
-cd /game/pyongyang
+export HOME=/tmp/flash-home
+mkdir -p "$HOME"
+GAME="/game/PY Racer_0509"
+cd "$GAME"
 
-# SWF may load assets from its folder or parent paths used by the web build.
 for f in /game/*.dat /game/*.txt /game/*.mp3; do
   [ -e "$f" ] && ln -sf "$f" .
 done
 [ -d /game/photo ] && ln -sfn /game/photo photo
 
-# Wait for Xvfb + fluxbox to be ready.
-sleep 10
-
-echo "Starting Flash Player for PYracer.swf at $(date)" >&2
+sleep 3
+echo "Starting Flash Player: $GAME/PYracer.swf at $(date)" >&2
 exec /opt/flash/flashplayer ./PYracer.swf

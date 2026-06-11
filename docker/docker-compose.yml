@@ -7,6 +7,14 @@ services:
     ports:
       - "6080:6080"
     environment:
-      - VNC_PASSWORD=${VNC_PASSWORD:-pyongyang}
+      - VNC_PASSWORD=${VNC_PASSWORD}
     restart: unless-stopped
-    shm_size: "256mb"
+    shm_size: "512mb"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+      - /var/log/supervisor:size=16M,mode=755
+      - /var/run:size=4M,mode=755

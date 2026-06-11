@@ -1,98 +1,63 @@
 # Play Pyongyang Racer online (real Flash via noVNC)
 
-This runs the **real Adobe Flash Player** in a Docker container and streams it to the browser with noVNC — correct 3D graphics, ~$0/month on Oracle Cloud.
+Runs the **real Adobe Flash Player** in Docker and streams it to the browser — correct 3D graphics. Works on **Oracle Cloud** or **Google Cloud** free x86 VMs.
+
+**Also read:** [docker/SECURITY.md](../docker/SECURITY.md) · [docker/PERFORMANCE.md](../docker/PERFORMANCE.md)
 
 ## Requirements
 
-- Oracle Cloud free account: https://www.oracle.com/cloud/free/
-- An **x86 (AMD)** VM — Flash Player does not run on ARM
-  - Shape: **VM.Standard.E2.1.Micro** (Always Free, up to 2 instances)
-  - Image: **Ubuntu 22.04**
-  - Assign a **public IP**
+- Cloud free account (Oracle or Google Cloud)
+- An **x86** VM — Flash Player does not run on ARM
+  - Oracle: **VM.Standard.E2.1.Micro** (AMD)
+  - GCP: **e2-micro** in `us-central1`, `us-east1`, or `us-west1`
+- Assign a **public IP**
+- Open port **6080** (TCP) in cloud firewall
 
-## Step 1 — Create the VM
-
-1. Sign in to Oracle Cloud Console
-2. **Compute → Instances → Create instance**
-3. Name: `pyongyang-racer`
-4. Image: Ubuntu 22.04
-5. Shape: **Change shape → Ampere** is wrong for Flash — pick **AMD** → **VM.Standard.E2.1.Micro**
-6. Networking: assign public IPv4
-7. SSH keys: add your public key
-8. Create
-
-## Step 2 — Open port 6080
-
-1. Go to your instance → **Subnet** link → **Security List**
-2. **Add Ingress Rule:**
-   - Source: `0.0.0.0/0`
-   - IP Protocol: TCP
-   - Destination port: `6080`
-3. Save
-
-## Step 3 — Copy the game to the server
-
-From your Mac (replace `YOUR_VM_IP`):
+## Quick deploy
 
 ```bash
-ssh ubuntu@YOUR_VM_IP
-# on the server:
-sudo apt-get update && sudo apt-get install -y git
 git clone https://github.com/fossil179/pyongyang-racer.git
 cd pyongyang-racer
-```
-
-Or upload from your machine:
-
-```bash
-scp -r /Users/iufkytdf/Documents/Cursor/Racer ubuntu@YOUR_VM_IP:~/pyongyang-racer
-```
-
-## Step 4 — Install Docker and deploy
-
-On the VM:
-
-```bash
-cd ~/pyongyang-racer
 chmod +x oracle/*.sh docker/*.sh
-./oracle/install-vm.sh
+./oracle/install-vm.sh          # installs Docker (Ubuntu/Debian)
 # log out and back in, then:
 ./oracle/deploy.sh
 ```
 
-## Step 5 — Play
+The script prints an **HTTPS URL** and auto-generated **VNC password** (saved in `docker/.vnc-password`).
 
-Open in your browser:
+## Play
 
 ```
-http://YOUR_VM_IP:6080/vnc.html
+https://YOUR_VM_IP:6080/vnc.html?autoconnect=1&password=YOUR_PASSWORD
 ```
 
-1. Click **Connect**
-2. Enter VNC password: `pyongyang` (unless you changed it)
-3. The game should appear in the Flash Player window
+Accept the self-signed certificate warning (Advanced → Proceed).
 
-Change password:
+## Security (summary)
+
+- Players reach a **Docker container**, not your VM desktop or shell.
+- VNC shows **only the Flash game window** — no terminal, no file manager.
+- Use a **strong password** (auto-generated on first deploy).
+- **Restrict firewall** port 6080 to your IP where possible (`YOUR_IP/32`).
+
+Full details: [docker/SECURITY.md](../docker/SECURITY.md)
+
+## Performance (summary)
+
+Free **e2-micro** VMs are playable but not as smooth as the Mac app. For better frame rate, upgrade to **GCP e2-small** (~$12/mo).
+
+Full details: [docker/PERFORMANCE.md](../docker/PERFORMANCE.md)
+
+## Change password
 
 ```bash
-VNC_PASSWORD=your-secret ./oracle/deploy.sh
+VNC_PASSWORD='your-secret' ./oracle/deploy.sh
 ```
-
-## Link from your GitHub Pages site
-
-After deploy, edit `racer.html` and set the play link to your server URL, or add to the About page.
-
-## Security notes
-
-- This exposes an old Flash runtime — only run the game, do not browse the open web in the container
-- Change the default VNC password
-- Consider restricting the Oracle security list to your IP instead of `0.0.0.0/0`
 
 ## Troubleshooting
 
 ```bash
 docker compose -f docker/docker-compose.yml logs -f
-docker compose -f docker/docker-compose.yml restart
+docker compose -f docker/docker-compose.yml exec pyongyang-racer tail -f /var/log/supervisor/flash.log
 ```
-
-If the page does not load, check Oracle ingress rule for port 6080 and that the VM shape is **x86**, not ARM.

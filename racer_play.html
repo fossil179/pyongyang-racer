@@ -19,17 +19,25 @@
   <div id="content">
     <div id="setup">
       <strong>Full graphics version</strong> — real Adobe Flash Player streamed via noVNC.
-      Set your server URL in <code>racer_play.html</code> (search for <code>PLAY_SERVER</code>),
-      or open <code>http://YOUR_SERVER_IP:6080/vnc.html</code> directly.
-      VNC password default: <code>pyongyang</code>
+      Set your server URL and VNC password in <code>racer_play.html</code>
+      (search for <code>PLAY_SERVER</code> and <code>PLAY_PASSWORD</code>),
+      or open <code>https://YOUR_SERVER_IP:6080/vnc.html</code> directly.
+      Password is shown when you run <code>./oracle/deploy.sh</code> (saved in <code>docker/.vnc-password</code>).
     </div>
     <iframe id="playbox" title="Pyongyang Racer"></iframe>
     <script>
-      // Set this to your Oracle Cloud server after running oracle/deploy.sh
+      // Set after running oracle/deploy.sh on your cloud VM
       var PLAY_SERVER = "";
+      var PLAY_PASSWORD = "";
       var frame = document.getElementById("playbox");
-      if (PLAY_SERVER) {
-        frame.src = PLAY_SERVER.replace(/\/$/, "").replace(/^http:/, "https:") + "/vnc.html?autoconnect=1&resize=scale&password=pyongyang";
+      if (PLAY_SERVER && PLAY_PASSWORD) {
+        frame.src = PLAY_SERVER.replace(/\/$/, "").replace(/^http:/, "https:")
+          + "/vnc.html?autoconnect=1&resize=scale&password=" + encodeURIComponent(PLAY_PASSWORD);
+      } else if (PLAY_SERVER) {
+        frame.src = PLAY_SERVER.replace(/\/$/, "").replace(/^http:/, "https:")
+          + "/vnc.html?autoconnect=1&resize=scale";
+        document.getElementById("setup").innerHTML +=
+          "<p>Enter the VNC password from <code>docker/.vnc-password</code> when prompted.</p>";
       } else {
         frame.style.display = "none";
         document.getElementById("setup").innerHTML +=
