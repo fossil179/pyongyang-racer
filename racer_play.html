@@ -29,7 +29,7 @@
       var PLAY_SERVER = "";
       var frame = document.getElementById("playbox");
       if (PLAY_SERVER) {
-        frame.src = PLAY_SERVER.replace(/\/$/, "") + "/vnc.html?autoconnect=1&resize=scale";
+        frame.src = PLAY_SERVER.replace(/\/$/, "").replace(/^http:/, "https:") + "/vnc.html?autoconnect=1&resize=scale&password=pyongyang";
       } else {
         frame.style.display = "none";
         document.getElementById("setup").innerHTML +=

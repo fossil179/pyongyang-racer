@@ -1,5 +1,6 @@
-# Pyongyang Racer — real Flash Player via noVNC (linux/amd64 for Oracle x86 VMs)
-FROM --platform=linux/amd64 ubuntu:22.04
+# Pyongyang Racer — real Flash Player via noVNC (linux/amd64 for Oracle/GCP x86 VMs)
+# Ubuntu 20.04: Flash Player SA needs older libs not present on 22.04.
+FROM --platform=linux/amd64 ubuntu:20.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     DISPLAY=:99 \
@@ -8,17 +9,24 @@ ENV DEBIAN_FRONTEND=noninteractive \
     VNC_PASSWORD=pyongyang
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    xvfb x11vnc fluxbox wget ca-certificates supervisor \
+    xvfb x11vnc fluxbox wget ca-certificates supervisor openssl \
     libgtk2.0-0 libnss3 libxss1 libasound2 libdbus-glib-1-2 \
     libglu1-mesa libxi6 libxrender1 libxtst6 libfreetype6 \
+    libxcursor1 libxrandr2 libcurl4 libgconf-2-4 libpango1.0-0 \
+    libfontconfig1 libatk1.0-0 libgdk-pixbuf2.0-0 libcairo2 \
     && rm -rf /var/lib/apt/lists/*
 
-# noVNC + websockify
-RUN wget -qO- https://github.com/novnc/noVNC/archive/refs/tags/v1.5.0.tar.gz | tar xz -C /opt \
-    && mv /opt/noVNC-1.5.0 /opt/noVNC \
-    && wget -qO- https://github.com/novnc/websockify/archive/refs/tags/v0.12.0.tar.gz | tar xz -C /opt/noVNC/utils \
-    && mv /opt/noVNC/utils/websockify-0.12.0 /opt/noVNC/utils/websockify \
+# noVNC + websockify (1.4 — fewer secure-context requirements than 1.5)
+RUN wget -qO- https://github.com/novnc/noVNC/archive/refs/tags/v1.4.0.tar.gz | tar xz -C /opt \
+    && mv /opt/noVNC-1.4.0 /opt/noVNC \
+    && wget -qO- https://github.com/novnc/websockify/archive/refs/tags/v0.11.0.tar.gz | tar xz -C /opt/noVNC/utils \
+    && mv /opt/noVNC/utils/websockify-0.11.0 /opt/noVNC/utils/websockify \
     && ln -s /opt/noVNC/vnc.html /opt/noVNC/index.html
+
+# Self-signed TLS cert so browsers give noVNC a secure context
+RUN openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout /opt/noVNC/self.pem -out /opt/noVNC/self.pem \
+    -subj "/CN=pyongyang-racer"
 
 # Adobe Flash Player standalone (Linux x86_64)
 RUN mkdir -p /opt/flash \
@@ -35,8 +43,9 @@ COPY photo /game/photo
 
 COPY docker/entrypoint.sh /entrypoint.sh
 COPY docker/start-vnc.sh /docker/start-vnc.sh
+COPY docker/start-flash.sh /docker/start-flash.sh
 COPY docker/supervisord.conf /etc/supervisor/conf.d/pyongyang.conf
-RUN chmod +x /entrypoint.sh /docker/start-vnc.sh
+RUN chmod +x /entrypoint.sh /docker/start-vnc.sh /docker/start-flash.sh
 
 EXPOSE 6080
 
