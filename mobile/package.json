@@ -1,0 +1,23 @@
+{
+  "name": "pyongyang-racer-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pyongyang Racer — iOS & Android (Capacitor)",
+  "scripts": {
+    "sync": "./sync-assets.sh",
+    "cap:sync": "npm run sync && npx cap sync",
+    "cap:open:ios": "npx cap open ios",
+    "cap:open:android": "npx cap open android",
+    "setup": "./setup.sh"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0",
+    "@capacitor/screen-orientation": "^6.0.2",
+    "@capacitor/status-bar": "^6.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  }
+}

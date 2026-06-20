@@ -1,0 +1,130 @@
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #1a1a2e;
+  font-family: system-ui, -apple-system, sans-serif;
+  touch-action: manipulation;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+}
+
+#game-stage {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#game-container {
+  width: 100%;
+  height: 100%;
+}
+
+#loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #eee;
+  font-size: 14px;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 2;
+}
+
+.error {
+  color: #ffb4b4;
+  padding: 16px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+#controls {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  gap: 12px;
+  background: linear-gradient(180deg, #2a2a4a 0%, #1a1a2e 100%);
+}
+
+.controls-left,
+.controls-right {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.ctl {
+  width: 64px;
+  height: 64px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 22px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.ctl:active,
+.ctl.active {
+  background: rgba(255, 220, 100, 0.35);
+  border-color: rgba(255, 220, 100, 0.8);
+}
+
+.ctl-gas {
+  width: 72px;
+  height: 72px;
+  font-size: 26px;
+}
+
+.ctl-brake {
+  font-size: 16px;
+}
+
+.ctl-honk {
+  font-size: 20px;
+}
+
+#rotate-hint {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #1a1a2e;
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  font-size: 18px;
+}
+
+@media (orientation: portrait) {
+  #rotate-hint {
+    display: flex;
+  }
+  #app {
+    visibility: hidden;
+  }
+}

@@ -8,6 +8,20 @@ Thumbs.db
 /Resource/
 Pyongyang-Racer-Mac.zip
 Pyongyang-Racer.app.zip
+Pyongyang-Racer-android.apk
 /Pyongyang Racer.app
 docker/.vnc-password
 docker/.env
+mobile/node_modules/
+mobile/android/local.properties
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/build/
+mobile/ios/
+mobile/www/ruffle/
+mobile/www/PY Racer_0509/
+mobile/www/photo/
+mobile/www/*.dat
+mobile/www/*.mp3
+mobile/www/common.txt
+mobile/www/info.txt

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <title>Pyongyang Racer</title>
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <div id="rotate-hint">Rotate your device to landscape to play</div>
+  <div id="app">
+    <div id="game-stage">
+      <div id="game-container"></div>
+      <div id="loading">Loading Pyongyang Racer…</div>
+    </div>
+    <div id="controls" aria-hidden="true">
+      <div class="controls-left">
+        <button type="button" class="ctl" data-key="ArrowLeft" aria-label="Steer left">◀</button>
+        <button type="button" class="ctl" data-key="ArrowRight" aria-label="Steer right">▶</button>
+      </div>
+      <div class="controls-right">
+        <button type="button" class="ctl ctl-brake" data-key="ArrowDown" aria-label="Brake">B</button>
+        <button type="button" class="ctl ctl-gas" data-key="ArrowUp" aria-label="Accelerate">▲</button>
+        <button type="button" class="ctl ctl-honk" data-key=" " aria-label="Honk">🔊</button>
+      </div>
+    </div>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/touch-controls.js"></script>
+  <script src="js/game-loader.js"></script>
+</body>
+</html>

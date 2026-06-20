@@ -1,0 +1,69 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - 'PY Racer_0509/**'
+      - 'ruffle/**'
+      - '.github/workflows/android-apk.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies and sync assets
+        run: |
+          npm ci || npm install
+          chmod +x sync-assets.sh
+          ./sync-assets.sh
+          npx cap sync android
+
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pyongyang-Racer-android-debug
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Upload to release (on main, manual tag optional)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk ../Pyongyang-Racer-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: install-instructions
+          path: mobile/android/INSTALL.txt
+          if-no-files-found: ignore

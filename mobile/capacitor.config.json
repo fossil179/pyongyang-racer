@@ -1,0 +1,14 @@
+{
+  "appId": "com.koryotours.pyongyangracer",
+  "appName": "Pyongyang Racer",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "automatic"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
