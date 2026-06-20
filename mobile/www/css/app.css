@@ -10,32 +10,33 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #1a1a2e;
+  background: #000;
   font-family: system-ui, -apple-system, sans-serif;
   touch-action: manipulation;
 }
 
 #app {
-  display: flex;
-  flex-direction: column;
+  position: relative;
   width: 100%;
   height: 100%;
   height: 100dvh;
+  overflow: hidden;
 }
 
 #game-stage {
-  flex: 1;
-  position: relative;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
   background: #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 #game-container {
   width: 100%;
   height: 100%;
+}
+
+#game-container ruffle-player,
+#game-container canvas {
+  touch-action: manipulation;
 }
 
 #loading {
@@ -48,6 +49,7 @@ html, body {
   font-size: 14px;
   background: rgba(0, 0, 0, 0.85);
   z-index: 2;
+  pointer-events: none;
 }
 
 .error {
@@ -57,53 +59,84 @@ html, body {
   line-height: 1.5;
 }
 
+#controls-toggle {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  right: max(8px, env(safe-area-inset-right));
+  z-index: 20;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(20, 20, 40, 0.75);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: auto;
+}
+
+#controls-toggle:active {
+  background: rgba(255, 220, 100, 0.35);
+}
+
 #controls {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
-  gap: 12px;
-  background: linear-gradient(180deg, #2a2a4a 0%, #1a1a2e 100%);
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+#controls.hidden {
+  display: none;
 }
 
 .controls-left,
 .controls-right {
+  position: absolute;
   display: flex;
+  flex-direction: column;
   gap: 10px;
-  align-items: flex-end;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: auto;
+}
+
+.controls-left {
+  left: max(10px, env(safe-area-inset-left));
+}
+
+.controls-right {
+  right: max(10px, env(safe-area-inset-right));
 }
 
 .ctl {
-  width: 64px;
-  height: 64px;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.12);
+  width: 56px;
+  height: 56px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  background: rgba(20, 20, 40, 0.72);
   color: #fff;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: bold;
   line-height: 1;
 }
 
-.ctl:active,
-.ctl.active {
-  background: rgba(255, 220, 100, 0.35);
-  border-color: rgba(255, 220, 100, 0.8);
+.ctl:active {
+  background: rgba(255, 220, 100, 0.4);
+  border-color: rgba(255, 220, 100, 0.85);
 }
 
 .ctl-gas {
-  width: 72px;
-  height: 72px;
-  font-size: 26px;
+  width: 62px;
+  height: 62px;
+  font-size: 24px;
 }
 
 .ctl-brake {
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .ctl-honk {
-  font-size: 20px;
+  font-size: 18px;
 }
 
 #rotate-hint {
@@ -124,7 +157,8 @@ html, body {
   #rotate-hint {
     display: flex;
   }
-  #app {
+  #app,
+  #controls-toggle {
     visibility: hidden;
   }
 }

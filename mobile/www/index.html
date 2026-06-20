@@ -15,14 +15,17 @@
       <div id="game-container"></div>
       <div id="loading">Loading Pyongyang Racer…</div>
     </div>
-    <div id="controls" aria-hidden="true">
+    <button type="button" id="controls-toggle" aria-expanded="false" aria-controls="controls">
+      Show controls
+    </button>
+    <div id="controls" class="hidden" aria-hidden="true">
       <div class="controls-left">
         <button type="button" class="ctl" data-key="ArrowLeft" aria-label="Steer left">◀</button>
         <button type="button" class="ctl" data-key="ArrowRight" aria-label="Steer right">▶</button>
       </div>
       <div class="controls-right">
-        <button type="button" class="ctl ctl-brake" data-key="ArrowDown" aria-label="Brake">B</button>
         <button type="button" class="ctl ctl-gas" data-key="ArrowUp" aria-label="Accelerate">▲</button>
+        <button type="button" class="ctl ctl-brake" data-key="ArrowDown" aria-label="Brake">B</button>
         <button type="button" class="ctl ctl-honk" data-key=" " aria-label="Honk">🔊</button>
       </div>
     </div>
