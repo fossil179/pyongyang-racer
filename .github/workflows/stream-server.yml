@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - ".devcontainer/**"
       - "docker/**"
       - "oracle/**"
       - "PY Racer_0509/**"
@@ -24,6 +25,11 @@ jobs:
         run: |
           cp docker/.env.example docker/.env
           docker compose -f docker/docker-compose.yml config --quiet
+          docker compose \
+            -f docker/docker-compose.yml \
+            -f .devcontainer/docker-compose.codespaces.yml \
+            config --quiet
+          bash -n .devcontainer/setup.sh .devcontainer/start.sh
       - name: Build Selkies Flash stream container
         uses: docker/build-push-action@v6
         with:

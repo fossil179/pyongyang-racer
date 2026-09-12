@@ -1,0 +1,4 @@
+services:
+  pyongyang-racer:
+    ports:
+      - "6080:6080"
