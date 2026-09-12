@@ -39,7 +39,6 @@ fi
 echo
 echo "Pyongyang Racer is ready:"
 echo "  ${URL}"
-echo "  Username: racer"
-echo "  Password: pyongyang"
 echo
 echo "Open the forwarded port named 'Pyongyang Racer' in the Ports panel."
+echo "The test URL is public. Stop the Codespace when you finish testing."

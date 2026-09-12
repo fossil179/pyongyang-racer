@@ -5,14 +5,12 @@
 3. Wait for the initial container build (usually 5–10 minutes).
 4. Open the **Ports** panel and click the forwarded port named
    **Pyongyang Racer**.
-5. Sign in with:
-   - Username: `racer`
-   - Password: `pyongyang`
-6. Click once inside the game to enable sound and keyboard controls.
+5. Click once inside the game to enable sound and keyboard controls.
 
-The forwarded port is private to the GitHub account that created the
-Codespace. Stop the Codespace when testing is finished so it does not consume
-the monthly free compute allowance.
+The forwarded test port is public because Codespaces' proxy does not pass
+Selkies' HTTP authentication prompt correctly. Production deployment still
+requires authentication. Stop the Codespace when testing is finished so the
+link is closed and it does not consume the monthly free compute allowance.
 
 To restart the game manually:
 

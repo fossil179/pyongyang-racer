@@ -21,7 +21,7 @@
       "label": "Pyongyang Racer",
       "onAutoForward": "notify",
       "protocol": "http",
-      "visibility": "private"
+      "visibility": "public"
     }
   },
   "postCreateCommand": "bash .devcontainer/setup.sh",

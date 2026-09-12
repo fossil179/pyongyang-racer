@@ -1,4 +1,6 @@
 services:
   pyongyang-racer:
+    environment:
+      - STREAM_AUTH=false
     ports:
       - "6080:6080"
