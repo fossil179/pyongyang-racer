@@ -4,7 +4,7 @@ set -euo pipefail
 
 echo "==> Installing Docker..."
 sudo apt-get update
-sudo apt-get install -y ca-certificates curl gnupg
+sudo apt-get install -y ca-certificates curl gnupg openssl
 sudo install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 sudo chmod a+r /etc/apt/keyrings/docker.gpg
@@ -16,9 +16,10 @@ sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 sudo usermod -aG docker "$USER"
 
-echo "==> Opening port 6080 in local firewall (if ufw is active)..."
+echo "==> Opening HTTP/HTTPS in local firewall (if ufw is active)..."
 if command -v ufw >/dev/null 2>&1 && sudo ufw status | grep -q active; then
-  sudo ufw allow 6080/tcp
+  sudo ufw allow 80/tcp
+  sudo ufw allow 443/tcp
 fi
 
 echo ""

@@ -9,18 +9,21 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-PASS_FILE="docker/.vnc-password"
-if [[ -n "${VNC_PASSWORD:-}" ]]; then
-  printf '%s' "$VNC_PASSWORD" > "$PASS_FILE"
+PASS_FILE="docker/.stream-password"
+if [[ -n "${STREAM_PASSWORD:-}" ]]; then
+  printf '%s' "$STREAM_PASSWORD" > "$PASS_FILE"
 elif [[ -f "$PASS_FILE" ]]; then
-  VNC_PASSWORD="$(cat "$PASS_FILE")"
+  STREAM_PASSWORD="$(cat "$PASS_FILE")"
 else
-  VNC_PASSWORD="$(openssl rand -base64 18 | tr -d '/+=' | head -c 20)"
-  printf '%s' "$VNC_PASSWORD" > "$PASS_FILE"
+  STREAM_PASSWORD="$(openssl rand -base64 18 | tr -d '/+=' | head -c 20)"
+  printf '%s' "$STREAM_PASSWORD" > "$PASS_FILE"
 fi
 chmod 600 "$PASS_FILE"
-export VNC_PASSWORD
-printf 'VNC_PASSWORD=%s\n' "$VNC_PASSWORD" > docker/.env
+STREAM_USER="${STREAM_USER:-racer}"
+STREAM_DOMAIN="${STREAM_DOMAIN:-game.pyongyangracer.com}"
+export STREAM_USER STREAM_PASSWORD STREAM_DOMAIN
+printf 'STREAM_USER=%s\nSTREAM_PASSWORD=%s\nSTREAM_DOMAIN=%s\n' \
+  "$STREAM_USER" "$STREAM_PASSWORD" "$STREAM_DOMAIN" > docker/.env
 chmod 600 docker/.env
 
 echo "==> Stopping old container..."
@@ -33,15 +36,25 @@ echo "==> Starting Pyongyang Racer..."
 $COMPOSE up -d --force-recreate
 
 echo "==> Waiting for services..."
-sleep 8
+sleep 12
 
-if $COMPOSE exec -T pyongyang-racer pgrep -x x11vnc >/dev/null 2>&1; then
-  echo "OK: x11vnc is running"
+if $COMPOSE exec -T pyongyang-racer \
+    curl -fsS --max-time 5 -u "${STREAM_USER}:${STREAM_PASSWORD}" \
+      http://localhost:6080/ >/dev/null 2>&1; then
+  echo "OK: Selkies is running"
 else
   echo ""
-  echo "ERROR: x11vnc failed to start. Diagnostic log:"
-  $COMPOSE exec -T pyongyang-racer cat /var/log/supervisor/x11vnc.log 2>/dev/null || true
+  echo "ERROR: Selkies failed to start. Diagnostic log:"
+  $COMPOSE exec -T pyongyang-racer cat /tmp/logs/selkies.log 2>/dev/null || true
   $COMPOSE logs --tail=30
+  exit 1
+fi
+
+if $COMPOSE exec -T pyongyang-racer pactl list short sources | grep -q output.monitor; then
+  echo "OK: browser audio source is ready"
+else
+  echo "ERROR: PulseAudio output.monitor source is missing"
+  $COMPOSE exec -T pyongyang-racer cat /tmp/logs/pulseaudio.log 2>/dev/null || true
   exit 1
 fi
 
@@ -52,11 +65,13 @@ echo "=============================================="
 echo " Pyongyang Racer is running!"
 echo "=============================================="
 echo ""
-echo " Open in your browser (auto-connect, HTTPS):"
-echo "   https://${PUBLIC_IP}:6080/vnc.html?autoconnect=1&password=${VNC_PASSWORD}"
+echo " Open in your browser:"
+echo "   https://${STREAM_DOMAIN}/"
 echo ""
-echo " VNC password (saved in docker/.vnc-password): ${VNC_PASSWORD}"
+echo " Login: ${STREAM_USER}"
+echo " Password (saved in docker/.stream-password): ${STREAM_PASSWORD}"
 echo ""
-echo " NOTE: Browser play has no sound (VNC limitation). Use the Mac app for audio."
+echo " Click once inside the stream to allow browser audio and control the game."
+echo " DNS requirement: ${STREAM_DOMAIN} must have an A record pointing to ${PUBLIC_IP}"
 echo ""
 echo " Logs:  $COMPOSE logs -f"

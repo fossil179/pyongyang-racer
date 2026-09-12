@@ -1,30 +1,41 @@
-# Pyongyang Racer — real Flash Player via noVNC (linux/amd64 for Oracle/GCP x86 VMs)
+# Pyongyang Racer — real Flash Player streamed with video, audio and input.
+# Selkies uses WebSockets/WebCodecs and PulseAudio/Opus in the browser.
 # Ubuntu 20.04: Flash Player SA needs older libs not present on 22.04.
 FROM --platform=linux/amd64 ubuntu:20.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     DISPLAY=:99 \
     SCREEN_WIDTH=800 \
-    SCREEN_HEIGHT=600
+    SCREEN_HEIGHT=600 \
+    XDG_RUNTIME_DIR=/tmp/runtime-racer \
+    PULSE_RUNTIME_PATH=/tmp/runtime-racer/pulse \
+    PULSE_SERVER=unix:/tmp/runtime-racer/pulse/native \
+    PULSE_SINK=output \
+    SDL_AUDIODRIVER=pulse
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    xvfb x11vnc xdotool x11-utils wget ca-certificates supervisor openssl \
+    xvfb xdotool x11-utils wget ca-certificates supervisor \
+    pulseaudio pulseaudio-utils libpulse0 libasound2-plugins \
+    libx11-xcb1 libxcb1 libxcb-shm0 libxcb-xfixes0 libxcb-randr0 \
+    libxdamage1 libxfixes3 libxext6 libxtst6 \
     libgtk2.0-0 libnss3 libxss1 libasound2 libdbus-glib-1-2 \
     libglu1-mesa libxi6 libxrender1 libxtst6 libfreetype6 \
     libxcursor1 libxrandr2 libcurl4 libgconf-2-4 libpango1.0-0 \
     libfontconfig1 libatk1.0-0 libgdk-pixbuf2.0-0 libcairo2 \
     && rm -rf /var/lib/apt/lists/*
 
-# noVNC + websockify (1.4 — works well over self-signed HTTPS)
-RUN wget -qO- https://github.com/novnc/noVNC/archive/refs/tags/v1.4.0.tar.gz | tar xz -C /opt \
-    && mv /opt/noVNC-1.4.0 /opt/noVNC \
-    && wget -qO- https://github.com/novnc/websockify/archive/refs/tags/v0.11.0.tar.gz | tar xz -C /opt/noVNC/utils \
-    && mv /opt/noVNC/utils/websockify-0.11.0 /opt/noVNC/utils/websockify \
-    && ln -s /opt/noVNC/vnc.html /opt/noVNC/index.html
-
-RUN openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-    -keyout /opt/noVNC/self.pem -out /opt/noVNC/self.pem \
-    -subj "/CN=pyongyang-racer"
+# The pinned Selkies 2 runtime includes its HTML5 client, H.264 encoder and
+# PulseAudio-to-Opus audio capture. Extract the AppImage at build time so the
+# container does not need FUSE or elevated privileges at runtime.
+ARG SELKIES_VERSION=2.0.0rc0
+RUN mkdir -p /opt/selkies \
+    && wget -qO /opt/selkies/selkies.AppImage \
+      "https://github.com/selkies-project/selkies/releases/download/v${SELKIES_VERSION}/selkies-${SELKIES_VERSION}-x86_64.AppImage" \
+    && chmod +x /opt/selkies/selkies.AppImage \
+    && cd /opt/selkies \
+    && ./selkies.AppImage --appimage-extract >/dev/null \
+    && mv squashfs-root app \
+    && rm selkies.AppImage
 
 # Adobe Flash Player standalone (Linux x86_64) — same binary family as Mac SA player
 RUN mkdir -p /opt/flash \
@@ -40,11 +51,16 @@ COPY 1.dat common.dat sound.dat symbol.dat common.txt info.txt PreGame.mp3 /game
 COPY photo /game/photo
 
 COPY docker/entrypoint.sh /entrypoint.sh
-COPY docker/start-vnc.sh /docker/start-vnc.sh
+COPY docker/start-pulseaudio.sh /docker/start-pulseaudio.sh
+COPY docker/start-selkies.sh /docker/start-selkies.sh
 COPY docker/start-flash.sh /docker/start-flash.sh
 COPY docker/supervisord.conf /etc/supervisor/conf.d/pyongyang.conf
-RUN chmod +x /entrypoint.sh /docker/start-vnc.sh /docker/start-flash.sh
+RUN useradd --create-home --uid 1000 --shell /bin/bash racer \
+    && chown -R racer:racer /opt/selkies /game \
+    && chmod +x /entrypoint.sh /docker/start-pulseaudio.sh \
+      /docker/start-selkies.sh /docker/start-flash.sh
 
 EXPOSE 6080
 
+USER racer
 ENTRYPOINT ["/entrypoint.sh"]

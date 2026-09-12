@@ -11,6 +11,7 @@ Pyongyang-Racer.app.zip
 Pyongyang-Racer-android.apk
 /Pyongyang Racer.app
 docker/.vnc-password
+docker/.stream-password
 docker/.env
 mobile/node_modules/
 mobile/android/local.properties

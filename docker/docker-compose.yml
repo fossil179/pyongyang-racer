@@ -4,17 +4,39 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     platform: linux/amd64
-    ports:
-      - "6080:6080"
+    expose:
+      - "6080"
     env_file:
       - .env
     environment:
-      - VNC_PASSWORD=${VNC_PASSWORD:-pyongyang}
+      - STREAM_USER=${STREAM_USER:-racer}
+      - STREAM_PASSWORD=${STREAM_PASSWORD:?Set STREAM_PASSWORD in docker/.env}
     restart: unless-stopped
-    shm_size: "512mb"
+    shm_size: "1gb"
+    cap_drop:
+      - ALL
     security_opt:
       - no-new-privileges:true
     tmpfs:
-      - /tmp:size=64M,mode=1777
-      - /var/log/supervisor:size=16M,mode=755
-      - /var/run:size=4M,mode=755
+      - /tmp:size=128M,mode=1777
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      - pyongyang-racer
+    environment:
+      - STREAM_DOMAIN=${STREAM_DOMAIN:-game.pyongyangracer.com}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,57 +1,48 @@
-# Performance — what to expect and how to improve
+# Performance — Selkies browser stream
 
-## Why browser play feels slower than the Mac app
+## Why streaming differs from the Mac app
 
-| Factor | Mac app | Cloud + noVNC |
-|--------|---------|---------------|
-| CPU | Your Mac's full cores | GCP e2-micro: **1 shared vCPU** (~fraction of one core) |
-| Display path | Direct GPU → screen | Flash → Xvfb → x11vnc → WebSocket → browser canvas |
-| Encoding | None | Every frame compressed and sent over the network |
-| Input | Direct keyboard/mouse | Keyboard/mouse events sent over WebSocket |
+| Factor | Mac app | Cloud + Selkies |
+|--------|---------|-----------------|
+| CPU | Direct local execution | Flash plus video/audio encoding |
+| Display | Direct GPU → screen | Flash → Xvfb → H.264 → WebCodecs |
+| Audio | Direct output | PulseAudio → Opus → browser |
+| Input | Local keyboard/mouse | Events sent over WebSocket |
 
-The game itself is identical; the **delivery pipeline** adds latency and caps frame rate.
+## Current profile
 
-## Optimizations already applied
+- 800×600, 24-bit Xvfb display
+- 30 FPS H.264 software encoding
+- 96 kbps Opus audio from `output.monitor`
+- One HTTPS/WebSocket endpoint through Caddy
+- No desktop environment or window manager
 
-- **16-bit colour** Xvfb (less data per frame)
-- **x11vnc `-24to16`** (compress to 16 bpp on the wire)
-- **Client-side caching** (`-ncache 10 -ncache_cr`)
-- **Fast encoding profile** (`-speeds fast`)
-- **Stream Flash window only** (not full desktop — fewer pixels)
-- **512 MB shared memory** for X11
-- **No window manager** (fluxbox removed — less CPU/RAM)
+## Server sizing
 
-These typically improve responsiveness by **20–40%** on free tier, but will not make it feel like a native app.
+| VM | Expected result |
+|----|-----------------|
+| Shared/free micro VM | Not recommended; encoding will frequently stall |
+| **2 vCPU / 4 GB** | Minimum for one player |
+| **4 vCPU / 8 GB** | Better frame pacing and latency |
+| Supported GPU VM | Best streaming result using hardware H.264 |
 
-## If you need better frame rate
+The current deployment is one shared Flash session. Multiple independent
+simultaneous players require one container/session per player and an
+orchestrator.
 
-| Option | Cost | Expected improvement |
-|--------|------|---------------------|
-| Stay on e2-micro + current setup | $0 | Baseline |
-| **GCP e2-small** (2 vCPU, 2 GB) | ~$12/mo | Noticeable — recommended if you host publicly |
-| **Oracle AMD E2.1.Micro** | $0 | Similar to e2-micro |
-| **Mac app / play-correct.sh** | $0 | Best — no streaming overhead |
+## Tips
 
-To upgrade on GCP: stop VM → change machine type to **e2-small** → start → redeploy.
-
-## Tips for players
-
-- Use a **wired connection** or strong Wi‑Fi
-- **Close other tabs** — noVNC is CPU-heavy in the browser
-- **Chrome or Firefox** (latest) generally perform best
-- Don't resize the VNC window larger than 800×600 — scaling adds work
-
-## Audio
-
-**There is no sound in the browser version.** Standard VNC/noVNC carries video and keyboard/mouse only — it cannot stream Flash game audio to your browser. The Mac app (`play-correct.sh` or `Pyongyang-Racer.app.zip`) includes sound.
+- Place the VM geographically near most players.
+- Use a current Chrome, Edge, Firefox or Safari.
+- Click inside the stream once to enable browser audio and keyboard capture.
+- Keep the player at its native 800×600 resolution.
 
 ## Measuring
 
-On the VM:
-
 ```bash
 docker stats
-docker compose -f docker/docker-compose.yml exec pyongyang-racer cat /var/log/supervisor/flash.log
+docker compose -f docker/docker-compose.yml exec pyongyang-racer \
+  tail -f /tmp/logs/selkies.log /tmp/logs/pulseaudio.log /tmp/logs/flash.log
 ```
 
-If CPU is pegged at 100%, the VM is undersized for comfortable play.
+If CPU stays near 100%, move to a larger VM or a supported GPU encoder.

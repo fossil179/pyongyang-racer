@@ -1,0 +1,13 @@
+{$STREAM_DOMAIN:game.pyongyangracer.com} {
+	encode zstd gzip
+
+	reverse_proxy pyongyang-racer:6080 {
+		flush_interval -1
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+	}
+}

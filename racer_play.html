@@ -6,9 +6,10 @@
 <link rel="icon" type="image/jpg" href="racer_images/koryotours_top_icon.jpg" />
 <link type="text/css" href="racer.css" rel="stylesheet" />
 <style>
-  #playbox { width:760px; height:600px; border:0; background:#000; }
   #setup { max-width:760px; margin:12px 0; padding:12px; background:#eef6ff; font-size:12px; line-height:1.5; }
-  #setup code { background:#fff; padding:1px 4px; }
+  #launch { display:inline-block; margin:14px 0 6px; padding:12px 20px; border-radius:6px;
+    background:#e66300; color:#fff; font-weight:bold; text-decoration:none; font-size:14px; }
+  #requirements { margin-top:10px; color:#555; }
 </style>
 </head>
 <body>
@@ -18,35 +19,29 @@
   <div id="leftcolumn"><img src="racer_images/border.jpg" width="43" height="600" /></div>
   <div id="content">
     <div id="setup">
-      <strong>Full graphics version</strong> — real Adobe Flash Player streamed via noVNC.
-      <strong>No sound</strong> in the browser (VNC limitation).
-      For graphics and sound together, <a href="https://github.com/fossil179/pyongyang-racer/releases/latest">download the Mac app</a>.
+      <h2>Full game — correct graphics and sound</h2>
+      <p>
+        This version streams the original Adobe Flash game using Selkies.
+        It includes the correct road, working driving physics and browser audio.
+      </p>
+      <p>
+        <a id="launch" href="https://game.pyongyangracer.com/" target="_blank" rel="noopener">
+          Launch Pyongyang Racer
+        </a>
+      </p>
+      <p id="requirements">
+        Use a current Chrome, Edge, Firefox or Safari browser. Enter the stream
+        login when prompted, then click once inside the game to enable sound.
+        One player can use the server at a time.
+      </p>
+      <p>
+        If the server is temporarily offline, use the
+        <a href="https://github.com/fossil179/pyongyang-racer/releases/latest">Mac app</a>.
+      </p>
     </div>
-    <iframe id="playbox" title="Pyongyang Racer"></iframe>
-    <script>
-      // Set after running oracle/deploy.sh on your cloud VM
-      var PLAY_SERVER = "";
-      var PLAY_PASSWORD = "";
-      var frame = document.getElementById("playbox");
-      if (PLAY_SERVER && PLAY_PASSWORD) {
-        frame.src = PLAY_SERVER.replace(/\/$/, "").replace(/^http:/, "https:")
-          + "/vnc.html?autoconnect=1&resize=scale&password=" + encodeURIComponent(PLAY_PASSWORD);
-      } else if (PLAY_SERVER) {
-        frame.src = PLAY_SERVER.replace(/\/$/, "").replace(/^http:/, "https:")
-          + "/vnc.html?autoconnect=1&resize=scale";
-        document.getElementById("setup").innerHTML +=
-          "<p>Enter the VNC password from <code>docker/.vnc-password</code> when prompted.</p>";
-      } else {
-        frame.style.display = "none";
-        document.getElementById("setup").innerHTML =
-          "<p><strong>Full graphics is not available right now.</strong> The play server is offline.</p>" +
-          "<p>Use <a href=\"racer.html\">Play the game</a> (browser version with sound) or " +
-          "<a href=\"https://github.com/fossil179/pyongyang-racer/releases/latest\">download the Mac app</a> (best quality).</p>";
-      }
-    </script>
   </div>
   <div id="rightcolumn"><img src="racer_images/border2.jpg" width="43" height="600" /></div>
-  <div id="footer"><span class="a">| Pyongyang Racer — full Flash play via noVNC |</span></div>
+  <div id="footer"><span class="a">| Pyongyang Racer — original Flash streamed with Selkies |</span></div>
 </div>
 </body>
 </html>

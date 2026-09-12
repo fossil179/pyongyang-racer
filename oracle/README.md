@@ -1,17 +1,23 @@
-# Play Pyongyang Racer online (real Flash via noVNC)
+# Play Pyongyang Racer online (graphics + browser sound)
 
-Runs the **real Adobe Flash Player** in Docker and streams it to the browser — correct 3D graphics. Works on **Oracle Cloud** or **Google Cloud** free x86 VMs.
+Runs the **real Adobe Flash Player** in Docker and streams video, Opus audio,
+keyboard and mouse input to a modern browser with
+[Selkies](https://selkies-project.github.io/selkies/). Unlike Ruffle, this
+preserves the original road, collision and 3D graphics.
 
 **Also read:** [docker/SECURITY.md](../docker/SECURITY.md) · [docker/PERFORMANCE.md](../docker/PERFORMANCE.md)
 
 ## Requirements
 
-- Cloud free account (Oracle or Google Cloud)
+- An x86 cloud VM running Ubuntu/Debian
 - An **x86** VM — Flash Player does not run on ARM
-  - Oracle: **VM.Standard.E2.1.Micro** (AMD)
-  - GCP: **e2-micro** in `us-central1`, `us-east1`, or `us-west1`
 - Assign a **public IP**
-- Open port **6080** (TCP) in cloud firewall
+- At least **2 vCPU and 4 GB RAM** for software H.264 encoding
+- DNS `A` record: `game.pyongyangracer.com` → VM public IP
+- Open TCP ports **80** and **443** in the cloud firewall
+
+Free micro VMs are not recommended: Flash, screen capture, H.264 and audio
+encoding share the same CPU.
 
 ## Quick deploy
 
@@ -24,56 +30,68 @@ chmod +x oracle/*.sh docker/*.sh
 ./oracle/deploy.sh
 ```
 
-The script prints an **HTTPS URL** and auto-generated **VNC password** (saved in `docker/.vnc-password`).
+The script builds the container, starts Selkies and Caddy, and creates an
+auto-generated stream password in `docker/.stream-password`.
 
 ## Play
 
 ```
-https://YOUR_VM_IP:6080/vnc.html?autoconnect=1&password=YOUR_PASSWORD
+https://game.pyongyangracer.com/
 ```
 
-Accept the self-signed certificate warning (Advanced → Proceed).
+Caddy obtains a trusted HTTPS certificate automatically after DNS points to
+the VM. Sign in with user `racer` and the password printed by
+`./oracle/deploy.sh`. Click once inside the stream so the browser permits audio.
 
 ## Security (summary)
 
-- Players reach a **Docker container**, not your VM desktop or shell.
-- VNC shows **only the Flash game window** — no terminal, no file manager.
-- Use a **strong password** (auto-generated on first deploy).
-- **Restrict firewall** port 6080 to your IP where possible (`YOUR_IP/32`).
+- Players reach a non-root Docker container, not the VM desktop or shell.
+- Selkies captures the isolated 800×600 X display and PulseAudio output.
+- Use the generated stream password; do not put it in public HTML.
+- Only ports 80/443 are public. Selkies port 6080 stays inside Docker.
 
 Full details: [docker/SECURITY.md](../docker/SECURITY.md)
 
 ## Performance (summary)
 
-Free **e2-micro** VMs are playable but not as smooth as the Mac app. For better frame rate, upgrade to **GCP e2-small** (~$12/mo).
+A 2-vCPU/4-GB VM is the minimum recommended size for one 800×600 stream.
+This deployment is a **single shared session**, so one active player at a time
+is recommended.
 
 Full details: [docker/PERFORMANCE.md](../docker/PERFORMANCE.md)
 
 ## Change password
 
 ```bash
-VNC_PASSWORD='your-secret' ./oracle/deploy.sh
+STREAM_USER=racer STREAM_PASSWORD='your-long-secret' ./oracle/deploy.sh
 ```
 
 ## Troubleshooting
 
-**"Failed to connect to downstream server" (code 1011)**  
-noVNC is up but x11vnc is not listening yet. Pull latest code and redeploy:
+**The domain does not load**
+Confirm DNS points to the VM and cloud firewall ports 80/443 are open:
 ```bash
-git pull && ./oracle/deploy.sh
+dig +short game.pyongyangracer.com
+docker compose -f docker/docker-compose.yml logs caddy
 ```
 
-**"password check failed"**  
-The password may have changed from `pyongyang`. On the VM:
+**Login fails**
+Read the generated password:
 ```bash
-cat ~/pyongyang-racer/docker/.vnc-password
+cat ~/pyongyang-racer/docker/.stream-password
 ```
-Or set a known password: `VNC_PASSWORD=pyongyang ./oracle/deploy.sh`
 
-**No sound**  
-Normal — VNC streams video only. Use the Mac app for sound.
+**No sound**
+Click once inside the player, check that the Selkies speaker control is
+unmuted, then verify the monitor source:
+```bash
+docker compose -f docker/docker-compose.yml exec pyongyang-racer \
+  pactl list short sources
+```
+The output must contain `output.monitor`.
 
 ```bash
 docker compose -f docker/docker-compose.yml logs -f
-docker compose -f docker/docker-compose.yml exec pyongyang-racer tail -f /var/log/supervisor/flash.log
+docker compose -f docker/docker-compose.yml exec pyongyang-racer \
+  tail -f /tmp/logs/selkies.log /tmp/logs/pulseaudio.log /tmp/logs/flash.log
 ```

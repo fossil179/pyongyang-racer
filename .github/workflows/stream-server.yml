@@ -1,0 +1,61 @@
+name: Validate stream server
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "docker/**"
+      - "oracle/**"
+      - "PY Racer_0509/**"
+      - "*.dat"
+      - "*.txt"
+      - "*.mp3"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Validate Compose configuration
+        run: |
+          cp docker/.env.example docker/.env
+          docker compose -f docker/docker-compose.yml config --quiet
+      - name: Build Selkies Flash stream container
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64
+          tags: pyongyang-racer-stream:test
+          load: true
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke-test video and audio services
+        run: |
+          docker run -d --name racer-test --shm-size=1g --cap-drop=ALL \
+            -e STREAM_USER=ci -e STREAM_PASSWORD=ci-test-password \
+            -p 6080:6080 pyongyang-racer-stream:test
+          for attempt in $(seq 1 90); do
+            if curl -fsS -u ci:ci-test-password http://localhost:6080/ >/dev/null; then
+              break
+            fi
+            if ! docker inspect -f '{{.State.Running}}' racer-test | grep -q true; then
+              docker logs racer-test
+              exit 1
+            fi
+            sleep 1
+          done
+          curl -fsS -u ci:ci-test-password http://localhost:6080/ >/dev/null
+          docker exec racer-test pactl list short sources | grep -q output.monitor
+          docker exec racer-test pgrep -f /opt/flash/flashplayer
+      - name: Show logs on failure
+        if: failure()
+        run: docker logs racer-test || true
+      - name: Stop test container
+        if: always()
+        run: docker rm -f racer-test || true
