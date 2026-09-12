@@ -40,8 +40,12 @@ jobs:
           docker run -d --name racer-test --shm-size=1g --cap-drop=ALL \
             -e STREAM_USER=ci -e STREAM_PASSWORD=ci-test-password \
             -p 6080:6080 pyongyang-racer-stream:test
-          for attempt in $(seq 1 90); do
-            if curl -fsS -u ci:ci-test-password http://localhost:6080/ >/dev/null; then
+          ready=false
+          for attempt in $(seq 1 120); do
+            if curl -fsS -u ci:ci-test-password http://localhost:6080/ >/dev/null \
+                && docker exec racer-test pactl list short sources | grep -q output.monitor \
+                && docker exec racer-test pgrep -f /opt/flash/flashplayer >/dev/null; then
+              ready=true
               break
             fi
             if ! docker inspect -f '{{.State.Running}}' racer-test | grep -q true; then
@@ -50,12 +54,18 @@ jobs:
             fi
             sleep 1
           done
+          if [ "${ready}" != true ]; then
+            docker exec racer-test sh -c 'cat /tmp/logs/*.log' || true
+            exit 1
+          fi
           curl -fsS -u ci:ci-test-password http://localhost:6080/ >/dev/null
           docker exec racer-test pactl list short sources | grep -q output.monitor
           docker exec racer-test pgrep -f /opt/flash/flashplayer
       - name: Show logs on failure
         if: failure()
-        run: docker logs racer-test || true
+        run: |
+          docker logs racer-test || true
+          docker exec racer-test sh -c 'cat /tmp/logs/*.log' || true
       - name: Stop test container
         if: always()
         run: docker rm -f racer-test || true
