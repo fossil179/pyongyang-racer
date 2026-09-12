@@ -19,11 +19,8 @@
   <div id="content">
     <div id="setup">
       <strong>Full graphics version</strong> — real Adobe Flash Player streamed via noVNC.
-      <strong>No sound</strong> in the browser (VNC limitation); use the Mac app for audio.
-      Set your server URL and VNC password in <code>racer_play.html</code>
-      (search for <code>PLAY_SERVER</code> and <code>PLAY_PASSWORD</code>),
-      or open <code>https://YOUR_SERVER_IP:6080/vnc.html</code> directly.
-      Password is shown when you run <code>./oracle/deploy.sh</code> (saved in <code>docker/.vnc-password</code>).
+      <strong>No sound</strong> in the browser (VNC limitation).
+      For graphics and sound together, <a href="https://github.com/fossil179/pyongyang-racer/releases/latest">download the Mac app</a>.
     </div>
     <iframe id="playbox" title="Pyongyang Racer"></iframe>
     <script>
@@ -41,8 +38,10 @@
           "<p>Enter the VNC password from <code>docker/.vnc-password</code> when prompted.</p>";
       } else {
         frame.style.display = "none";
-        document.getElementById("setup").innerHTML +=
-          "<p><strong>Server not configured yet.</strong> Follow <code>oracle/README.md</code> to deploy, then set <code>PLAY_SERVER</code> in this file.</p>";
+        document.getElementById("setup").innerHTML =
+          "<p><strong>Full graphics is not available right now.</strong> The play server is offline.</p>" +
+          "<p>Use <a href=\"racer.html\">Play the game</a> (browser version with sound) or " +
+          "<a href=\"https://github.com/fossil179/pyongyang-racer/releases/latest\">download the Mac app</a> (best quality).</p>";
       }
     </script>
   </div>

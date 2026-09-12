@@ -37,31 +37,58 @@
            For <strong>correct graphics</strong>, try <a href="racer_play.html"><strong>Full graphics</strong></a> (no sound)
            or <a href="https://github.com/fossil179/pyongyang-racer/releases/latest">download the Mac app</a> (graphics + sound).
          </p>
-         <div id="game-container"></div>
+         <div id="game-container" style="position:relative;width:760px;height:500px;background:#000;">
+           <div id="game-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#eee;font-size:13px;text-align:center;padding:20px;line-height:1.6;z-index:2;background:#000;">
+             Loading Pyongyang Racer&hellip;<br />
+             <span style="font-size:11px;color:#aaa;">First visit may take 30&ndash;60 seconds while the game downloads.</span>
+           </div>
+         </div>
          <script src="ruffle/ruffle.js"></script>
          <script>
-           window.RufflePlayer = window.RufflePlayer || {};
-           const ruffleBase = (function () {
-             const script = document.currentScript.previousElementSibling;
-             const src = script && script.src ? script.src : "ruffle/ruffle.js";
-             return src.replace(/[^/]+$/, "");
+           (function () {
+             var loading = document.getElementById("game-loading");
+             var container = document.getElementById("game-container");
+
+             function hideLoading() {
+               if (loading) loading.style.display = "none";
+             }
+
+             function dismissHwModal() {
+               var modal = document.getElementById("hardware-acceleration-modal");
+               if (modal) modal.remove();
+             }
+
+             window.RufflePlayer = window.RufflePlayer || {};
+             var ruffleScript = document.querySelector('script[src*="ruffle.js"]');
+             var ruffleBase = ruffleScript && ruffleScript.src
+               ? ruffleScript.src.replace(/[^/]+$/, "")
+               : "ruffle/";
+             window.RufflePlayer.config = {
+               publicPath: ruffleBase,
+               autoplay: "on",
+               unmuteOverlay: "hidden",
+               letterbox: "off",
+               warnOnUnsupportedContent: false,
+               splashScreen: false,
+               compatibilityRules: true,
+               preferredRenderer: "webgl"
+             };
+             var ruffle = window.RufflePlayer.newest();
+             var player = ruffle.createPlayer();
+             player.style.width = "760px";
+             player.style.height = "500px";
+             container.appendChild(player);
+             dismissHwModal();
+             setInterval(dismissHwModal, 1000);
+             player.load("PY Racer_0509/PYracer.swf").then(function () {
+               setTimeout(hideLoading, 500);
+             }).catch(function () {
+               if (loading) {
+                 loading.innerHTML = "Could not load the game. Try refreshing, or use the Mac app from GitHub Releases.";
+               }
+             });
+             setTimeout(hideLoading, 45000);
            })();
-           window.RufflePlayer.config = {
-             publicPath: ruffleBase,
-             autoplay: "on",
-             unmuteOverlay: "hidden",
-             letterbox: "off",
-             warnOnUnsupportedContent: false,
-             splashScreen: false,
-             compatibilityRules: true,
-             preferredRenderer: "wgpu-webgl"
-           };
-           const ruffle = window.RufflePlayer.newest();
-           const player = ruffle.createPlayer();
-           player.style.width = "760px";
-           player.style.height = "500px";
-           document.getElementById("game-container").appendChild(player);
-           player.load("PY Racer_0509/PYracer.swf");
          </script>
          </div>
 		 <!-- End Content Column -->
