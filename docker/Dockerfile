@@ -1,7 +1,7 @@
 # Pyongyang Racer — real Flash Player streamed with video, audio and input.
 # Selkies uses WebSockets/WebCodecs and PulseAudio/Opus in the browser.
 # Ubuntu 20.04: Flash Player SA needs older libs not present on 22.04.
-FROM --platform=linux/amd64 ubuntu:20.04
+FROM ubuntu:20.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     DISPLAY=:99 \
