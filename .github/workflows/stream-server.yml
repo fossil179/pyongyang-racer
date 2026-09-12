@@ -67,6 +67,8 @@ jobs:
           curl -fsS -u ci:ci-test-password http://localhost:6080/ >/dev/null
           docker exec racer-test pactl list short sources | grep -q output.monitor
           docker exec racer-test pgrep -f /opt/flash/flashplayer
+          docker exec racer-test /opt/selkies/app/usr/conda/bin/python \
+            -c "import pixelflux"
       - name: Show logs on failure
         if: failure()
         run: |

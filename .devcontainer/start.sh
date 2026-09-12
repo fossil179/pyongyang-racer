@@ -30,6 +30,13 @@ if ! curl -fsS -u racer:pyongyang http://localhost:6080/ >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! "${COMPOSE[@]}" exec -T pyongyang-racer \
+    /opt/selkies/app/usr/conda/bin/python -c "import pixelflux"; then
+  echo "The Selkies video encoder could not load. Recent logs:"
+  "${COMPOSE[@]}" exec -T pyongyang-racer cat /tmp/logs/selkies.log || true
+  exit 1
+fi
+
 if [[ -n "${CODESPACE_NAME:-}" && -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]]; then
   URL="https://${CODESPACE_NAME}-6080.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}/"
 else
