@@ -13,7 +13,14 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PULSE_SINK=output \
     SDL_AUDIODRIVER=pulse
 
+# Ubuntu 20.04's stock GBM predates gbm_bo_create_with_modifiers2, which the
+# current Selkies pixelflux wheel requires. Kisak's stable Focal Mesa packages
+# provide the newer ABI while retaining Ubuntu 20.04 compatibility for Flash.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    && add-apt-repository -y ppa:kisak/turtle \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
     xvfb xdotool x11-utils x11-xkb-utils x11-xserver-utils \
     wget ca-certificates supervisor \
     pulseaudio pulseaudio-utils libpulse0 libasound2-plugins \
