@@ -5,8 +5,8 @@ FROM ubuntu:20.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     DISPLAY=:99 \
-    SCREEN_WIDTH=800 \
-    SCREEN_HEIGHT=600 \
+    SCREEN_WIDTH=760 \
+    SCREEN_HEIGHT=500 \
     XDG_RUNTIME_DIR=/tmp/runtime-racer \
     PULSE_RUNTIME_PATH=/tmp/runtime-racer/pulse \
     PULSE_SERVER=unix:/tmp/runtime-racer/pulse/native \

@@ -21,8 +21,9 @@ terminate_flash() {
 }
 trap terminate_flash TERM INT HUP
 
-# The standalone player opens with its application menu and URL bar visible.
-# Ctrl+F hides that chrome; resizing afterwards makes the game fill the stream.
+# The standalone player wraps the native 760x500 game in 51 pixels of chrome.
+# Keep the game at its original size and position that chrome above the X
+# display, rather than using Flash fullscreen mode (which clips the game HUD).
 FLASH_WINDOW=""
 for _ in $(seq 1 100); do
   kill -0 "$FLASH_PID" 2>/dev/null || break
@@ -33,10 +34,9 @@ done
 
 if [ -n "$FLASH_WINDOW" ]; then
   sleep 0.5
-  xdotool key --clearmodifiers --window "$FLASH_WINDOW" ctrl+f
-  xdotool windowmove "$FLASH_WINDOW" 0 0
-  xdotool windowsize "$FLASH_WINDOW" 800 600
-  echo "Flash Player chrome hidden; game window set to 800x600" >&2
+  xdotool windowsize "$FLASH_WINDOW" 760 551
+  xdotool windowmove "$FLASH_WINDOW" 0 -51
+  echo "Flash Player chrome cropped; native 760x500 game fills the display" >&2
 else
   echo "Warning: Flash Player window was not found; leaving its layout unchanged" >&2
 fi

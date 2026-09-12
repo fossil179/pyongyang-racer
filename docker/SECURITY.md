@@ -38,7 +38,7 @@ browse the host filesystem or launch a shell through the stream.
 - `no-new-privileges:true` — blocks privilege escalation
 - Runtime process uses the unprivileged `racer` user
 - No shell, terminal, or window manager in the container
-- Selkies captures only the isolated 800×600 X display
+- Selkies captures only the isolated 760×500 game display
 - Game files are baked into the image; Flash config writes go to `/tmp` only
 
 ## Game fidelity

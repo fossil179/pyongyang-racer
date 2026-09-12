@@ -46,7 +46,7 @@ the VM. Sign in with user `racer` and the password printed by
 ## Security (summary)
 
 - Players reach a non-root Docker container, not the VM desktop or shell.
-- Selkies captures the isolated 800×600 X display and PulseAudio output.
+- Selkies captures the isolated native-size 760×500 game display and PulseAudio output.
 - Use the generated stream password; do not put it in public HTML.
 - Only ports 80/443 are public. Selkies port 6080 stays inside Docker.
 
