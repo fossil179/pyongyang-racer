@@ -14,7 +14,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     SDL_AUDIODRIVER=pulse
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    xvfb xdotool x11-utils wget ca-certificates supervisor \
+    xvfb xdotool x11-utils x11-xkb-utils x11-xserver-utils \
+    wget ca-certificates supervisor \
     pulseaudio pulseaudio-utils libpulse0 libasound2-plugins \
     libx11-xcb1 libxcb1 libxcb-shm0 libxcb-xfixes0 libxcb-randr0 \
     libxdamage1 libxfixes3 libxext6 libxtst6 \
