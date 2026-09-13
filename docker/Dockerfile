@@ -36,6 +36,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # The pinned Selkies 2 runtime includes its HTML5 client, H.264 encoder and
 # PulseAudio-to-Opus audio capture. Extract the AppImage at build time so the
 # container does not need FUSE or elevated privileges at runtime.
+# AppRun prepends its bundled libraries, but its pactl was built against a
+# newer glibc than Flash-compatible Ubuntu 20.04. Its wrapper below invokes the
+# compatible system pactl without the AppImage library path.
 ARG SELKIES_VERSION=2.0.0rc0
 RUN mkdir -p /opt/selkies \
     && wget -qO /opt/selkies/selkies.AppImage \
@@ -44,7 +47,11 @@ RUN mkdir -p /opt/selkies \
     && cd /opt/selkies \
     && ./selkies.AppImage --appimage-extract >/dev/null \
     && mv squashfs-root app \
-    && rm selkies.AppImage
+    && rm selkies.AppImage \
+    && mv /opt/selkies/app/usr/conda/bin/pactl /opt/selkies/app/usr/conda/bin/pactl.bundled \
+    && printf '%s\n' '#!/bin/sh' 'unset LD_LIBRARY_PATH' 'exec /usr/bin/pactl "$@"' \
+      > /opt/selkies/app/usr/conda/bin/pactl \
+    && chmod +x /opt/selkies/app/usr/conda/bin/pactl
 
 # Adobe Flash Player standalone (Linux x86_64) — same binary family as Mac SA player
 RUN mkdir -p /opt/flash \
