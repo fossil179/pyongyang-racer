@@ -1,0 +1,13 @@
+[Unit]
+Description=Email the Pyongyang Racer daily server report
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/pyongyang-racer
+EnvironmentFile=/etc/pyongyang-racer-report.env
+ExecStart=/usr/bin/python3 /opt/pyongyang-racer/oracle/daily-report.py --send
+User=root
+NoNewPrivileges=true
+PrivateTmp=true

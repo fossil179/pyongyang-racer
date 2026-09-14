@@ -1,0 +1,11 @@
+[Unit]
+Description=Send the Pyongyang Racer server report every day
+
+[Timer]
+OnCalendar=*-*-* 07:00:00 UTC
+Persistent=true
+RandomizedDelaySec=5m
+Unit=pyongyang-racer-report.service
+
+[Install]
+WantedBy=timers.target
