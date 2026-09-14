@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build and start the game container on the Oracle/GCP VM.
+# Build and start the game containers on an Ubuntu/Debian cloud VM.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 COMPOSE="docker compose -f docker/docker-compose.yml"
@@ -36,11 +36,18 @@ echo "==> Starting Pyongyang Racer..."
 $COMPOSE up -d --force-recreate
 
 echo "==> Waiting for services..."
-sleep 12
+SELKIES_READY=false
+for _ in $(seq 1 120); do
+  if $COMPOSE exec -T pyongyang-racer \
+      curl -fsS --max-time 5 -u "${STREAM_USER}:${STREAM_PASSWORD}" \
+        http://localhost:6080/ >/dev/null 2>&1; then
+    SELKIES_READY=true
+    break
+  fi
+  sleep 1
+done
 
-if $COMPOSE exec -T pyongyang-racer \
-    curl -fsS --max-time 5 -u "${STREAM_USER}:${STREAM_PASSWORD}" \
-      http://localhost:6080/ >/dev/null 2>&1; then
+if [[ "$SELKIES_READY" == true ]]; then
   echo "OK: Selkies is running"
 else
   echo ""
