@@ -35,7 +35,7 @@ services:
       - STREAM_USER=${STREAM_USER:-racer}
       - STREAM_PASSWORD=${STREAM_PASSWORD:?Set STREAM_PASSWORD in docker/.env}
       - TRUST_PROXY=true
-      - EMBED_ORIGIN=${EMBED_ORIGIN:-https://pyongyangracer.com}
+      - EMBED_ORIGINS=${EMBED_ORIGINS:-https://pyongyangracer.com http://pyongyangracer.com}
       - MAX_ACTIVE_SECONDS=${MAX_ACTIVE_SECONDS:-900}
       - HEARTBEAT_TIMEOUT_SECONDS=${HEARTBEAT_TIMEOUT_SECONDS:-60}
       - WAITING_EXPIRY_SECONDS=${WAITING_EXPIRY_SECONDS:-300}

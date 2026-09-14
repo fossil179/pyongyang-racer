@@ -192,19 +192,26 @@ function cookieHeader(id) {
   return `${COOKIE_NAME}=${id}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`;
 }
 
-function allowedEmbedOrigin(value) {
-  if (!value) return '';
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === 'https:' && parsed.origin === value ? value : '';
-  } catch {
-    return '';
+function allowedEmbedOrigins(value) {
+  const origins = [];
+  for (const candidate of String(value || '').split(/\s+/).filter(Boolean)) {
+    try {
+      const parsed = new URL(candidate);
+      if (
+        (parsed.protocol === 'https:' || parsed.protocol === 'http:') &&
+        parsed.origin === candidate
+      ) {
+        origins.push(candidate);
+      }
+    } catch {
+      // Ignore invalid configured origins rather than placing them in CSP.
+    }
   }
+  return origins;
 }
 
-function securityHeaders(nonce, embedOrigin) {
-  const frameAncestors = [`'self'`];
-  if (embedOrigin) frameAncestors.push(embedOrigin);
+function securityHeaders(nonce, embedOrigins) {
+  const frameAncestors = [`'self'`, ...embedOrigins];
   return {
     'Cache-Control': 'no-store',
     'Content-Security-Policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; frame-src 'self'; connect-src 'self'; img-src 'self' data:; media-src 'self' blob:; font-src 'self'; worker-src 'self' blob:; frame-ancestors ${frameAncestors.join(' ')}; base-uri 'none'; form-action 'none'`,
@@ -316,8 +323,9 @@ function createGateway(options = {}) {
     capacity: positiveInt(env.QUEUE_CAPACITY, 50)
   });
   const trustProxy = options.trustProxy ?? env.TRUST_PROXY === 'true';
-  const embedOrigin = allowedEmbedOrigin(
-    options.embedOrigin ?? env.EMBED_ORIGIN ?? 'https://pyongyangracer.com'
+  const embedOrigins = allowedEmbedOrigins(
+    options.embedOrigins ?? env.EMBED_ORIGINS ??
+      'https://pyongyangracer.com http://pyongyangracer.com'
   );
   const upstream = options.upstream || env.UPSTREAM_URL || 'http://pyongyang-racer:6080';
   const upstreamUser = options.upstreamUser ?? env.STREAM_USER;
@@ -408,7 +416,7 @@ function createGateway(options = {}) {
       const nonce = crypto.randomBytes(18).toString('base64');
       const body = req.method === 'HEAD' ? '' : shellHtml(status, nonce);
       const headers = {
-        ...securityHeaders(nonce, embedOrigin),
+        ...securityHeaders(nonce, embedOrigins),
         'Content-Type': 'text/html; charset=utf-8'
       };
       if (identity.isNew) headers['Set-Cookie'] = cookieHeader(identity.id);
