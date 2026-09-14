@@ -17,7 +17,7 @@ import urllib.request
 
 
 GAME_HOST = os.getenv("GAME_HOST", "game.pyongyangracer.com")
-GAME_URL = f"https://{GAME_HOST}/"
+GAME_URL = f"https://{GAME_HOST}/healthz"
 
 
 def run(*command: str) -> str:
@@ -41,9 +41,6 @@ def website_status() -> str:
         with urllib.request.urlopen(request, timeout=15) as response:
             return f"healthy (HTTP {response.status})"
     except urllib.error.HTTPError as exc:
-        # The pre-launch deployment intentionally uses HTTP Basic Auth.
-        if exc.code == 401:
-            return "healthy (HTTP 401 authentication enabled)"
         return f"unhealthy (HTTP {exc.code})"
     except OSError as exc:
         return f"unhealthy ({exc})"

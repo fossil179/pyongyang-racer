@@ -50,6 +50,15 @@ else
   exit 1
 fi
 
+if $COMPOSE exec -T queue-gateway \
+    node -e "require('http').get('http://127.0.0.1:8080/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"; then
+  echo "OK: queue gateway is running"
+else
+  echo "ERROR: queue gateway health check failed"
+  $COMPOSE logs --tail=30 queue-gateway
+  exit 1
+fi
+
 if $COMPOSE exec -T pyongyang-racer pactl list short sources | grep -q output.monitor; then
   echo "OK: browser audio source is ready"
 else
@@ -68,8 +77,8 @@ echo ""
 echo " Open in your browser:"
 echo "   https://${STREAM_DOMAIN}/"
 echo ""
-echo " Login: ${STREAM_USER}"
-echo " Password (saved in docker/.stream-password): ${STREAM_PASSWORD}"
+echo " Visitors join anonymously through the one-player queue."
+echo " Internal Selkies password saved in docker/.stream-password (do not share it)."
 echo ""
 echo " Click once inside the stream to allow browser audio and control the game."
 echo " DNS requirement: ${STREAM_DOMAIN} must have an A record pointing to ${PUBLIC_IP}"

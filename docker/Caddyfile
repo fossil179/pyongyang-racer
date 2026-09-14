@@ -1,8 +1,9 @@
 {$STREAM_DOMAIN:game.pyongyangracer.com} {
 	encode zstd gzip
 
-	reverse_proxy pyongyang-racer:6080 {
+	reverse_proxy queue-gateway:8080 {
 		flush_interval -1
+		header_up X-Forwarded-For {remote_host}
 	}
 
 	header {

@@ -20,10 +20,50 @@ services:
     tmpfs:
       - /tmp:size=128M,mode=1777
 
+  queue-gateway:
+    build:
+      context: gateway
+      dockerfile: Dockerfile
+    depends_on:
+      - pyongyang-racer
+    expose:
+      - "8080"
+    env_file:
+      - .env
+    environment:
+      - UPSTREAM_URL=http://pyongyang-racer:6080
+      - STREAM_USER=${STREAM_USER:-racer}
+      - STREAM_PASSWORD=${STREAM_PASSWORD:?Set STREAM_PASSWORD in docker/.env}
+      - TRUST_PROXY=true
+      - EMBED_ORIGIN=${EMBED_ORIGIN:-https://pyongyangracer.com}
+      - MAX_ACTIVE_SECONDS=${MAX_ACTIVE_SECONDS:-900}
+      - HEARTBEAT_TIMEOUT_SECONDS=${HEARTBEAT_TIMEOUT_SECONDS:-60}
+      - WAITING_EXPIRY_SECONDS=${WAITING_EXPIRY_SECONDS:-300}
+      - QUEUE_CAPACITY=${QUEUE_CAPACITY:-50}
+      - RATE_LIMIT_REQUESTS=${RATE_LIMIT_REQUESTS:-120}
+      - RATE_LIMIT_WINDOW_SECONDS=${RATE_LIMIT_WINDOW_SECONDS:-60}
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:8080/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
   caddy:
     image: caddy:2-alpine
     depends_on:
-      - pyongyang-racer
+      queue-gateway:
+        condition: service_healthy
     environment:
       - STREAM_DOMAIN=${STREAM_DOMAIN:-game.pyongyangracer.com}
     ports:
