@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
     xvfb xdotool x11-utils x11-xkb-utils x11-xserver-utils \
-    wget ca-certificates supervisor \
+    wget curl ca-certificates supervisor \
     pulseaudio pulseaudio-utils libpulse0 libasound2-plugins \
     libgbm1 libva2 libva-drm2 libva-x11-2 \
     libx11-xcb1 libxcb1 libxcb-shm0 libxcb-xfixes0 libxcb-randr0 \
