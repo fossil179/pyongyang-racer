@@ -360,7 +360,7 @@ function createGateway(options = {}) {
   proxy.on('proxyRes', (proxyRes) => {
     delete proxyRes.headers['set-cookie'];
     delete proxyRes.headers['www-authenticate'];
-    proxyRes.headers['x-frame-options'] = 'SAMEORIGIN';
+    delete proxyRes.headers['x-frame-options'];
     const location = proxyRes.headers.location;
     if (typeof location === 'string' && location.startsWith('/')) {
       proxyRes.headers.location = `/stream${location}`;

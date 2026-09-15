@@ -162,6 +162,7 @@ test('proxies only the active identity and injects upstream auth', async (t) => 
   assert.equal(proxied.status, 200);
   assert.equal(proxied.body, 'game');
   assert.equal(proxied.headers['www-authenticate'], undefined);
+  assert.equal(proxied.headers['x-frame-options'], undefined);
   assert.deepEqual(observed, {
     url: '/assets/client.js?x=1',
     authorization: `Basic ${Buffer.from('secret-user:secret-pass').toString('base64')}`,
