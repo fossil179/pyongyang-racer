@@ -267,7 +267,7 @@ function shellHtml(status, nonce) {
   <main>
     <div id="status" role="status" aria-live="polite">${message}</div>
     <iframe id="game" title="Pyongyang Racer" ${active ? 'src="/stream/"' : ''}
-      allow="autoplay; fullscreen; gamepad; clipboard-read; clipboard-write"></iframe>
+      allow="autoplay; fullscreen; gamepad; screen-wake-lock; clipboard-read; clipboard-write"></iframe>
     <p class="note">Keep this page open to retain your place or active turn.</p>
   </main>
   <script nonce="${nonce}">
