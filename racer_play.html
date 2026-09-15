@@ -4,6 +4,13 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Pyongyang Racer</title>
+<meta name="description" content="Drive around Pyongyang in this 2012 arcade racing game from Nosotek and Koryo Tours." />
+<meta property="og:title" content="Pyongyang Racer" />
+<meta property="og:description" content="Drive around Pyongyang in this 2012 arcade racing game from Nosotek and Koryo Tours." />
+<meta property="og:url" content="https://pyongyangracer.com/" />
+<meta property="og:image" content="https://pyongyangracer.com/racer_images/about.png" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
 <link rel="icon" type="image/png" href="favicon.png" />
 <link type="text/css" href="racer.css" rel="stylesheet" />
 <style>
@@ -13,20 +20,10 @@
   #setup { width:100%; box-sizing:border-box; margin:12px 0; padding:12px; background:#eef6ff; font-size:12px; line-height:1.5; }
   #launch { display:inline-block; margin:14px 0 6px; padding:12px 20px; border-radius:6px;
     background:#e66300; color:#fff; font-weight:bold; text-decoration:none; font-size:14px; }
-  #game-frame { display:block; width:760px; max-width:100%; height:640px; margin:12px 0 6px;
-    border:0; background:#101318; }
   #requirements { margin-top:10px; color:#555; }
   @media (max-width:800px) {
-    #wrapper { width:100%; }
-    #header { float:none; width:100%; height:auto; margin-top:0; }
-    #header img { display:block; width:100%; height:auto; }
-    #navigation { float:none; width:100%; height:auto; box-sizing:border-box; padding:10px;
-      margin:0; background:#777; line-height:1.7; text-align:center; }
-    #leftcolumn, #rightcolumn { display:none; }
-    #content { float:none; width:100%; min-height:0; box-sizing:border-box; margin:0; padding:8px; }
-    #setup { margin:0; }
-    #game-frame { height:min(640px, 78vh); }
-    #footer { width:100%; box-sizing:border-box; margin:0; }
+    #setup { margin:0; font-size:14px; }
+    #leftcolumn, #rightcolumn { height:auto; }
   }
 </style>
 </head>
@@ -37,11 +34,17 @@
   <div id="leftcolumn"><img src="racer_images/border.jpg" width="43" height="600" /></div>
   <div id="content">
     <div id="setup">
-      <h2>Full game — correct graphics and sound</h2>
+      <h2>Play Pyongyang Racer</h2>
       <p>
-        This version streams the original Adobe Flash game using Selkies.
-        It includes the correct road, working driving physics and browser audio.
+        This version streams the original Adobe Flash game. It includes the
+        correct road, working driving physics and browser audio. Several people
+        can play at the same time. A session lasts up to 15 minutes.
       </p>
+      <div class="howto">
+        <strong>Controls:</strong> Arrow keys steer, accelerate and brake.
+        Space honks. On a phone, use the on-screen buttons over the game.
+        Tap or click the game once for sound.
+      </div>
       <iframe id="game-frame" src="https://game.pyongyangracer.com/"
         title="Play Pyongyang Racer" loading="eager"
         allow="autoplay; fullscreen; gamepad; screen-wake-lock; clipboard-read; clipboard-write"></iframe>
@@ -51,10 +54,18 @@
         </a>
       </p>
       <p id="requirements">
-        Use a current Chrome, Edge, Firefox or Safari browser. Click once inside
-        the game to enable sound and controls. If another visitor is playing,
-        this page will keep your place in the queue.
+        Works in a current Chrome, Edge, Firefox or Safari browser on phones,
+        tablets and computers. If every session is taken, this page keeps your
+        place in the queue.
       </p>
+      <div class="share" role="group" aria-label="Share Pyongyang Racer">
+        <span>Share:</span>
+        <a href="https://twitter.com/intent/tweet?text=Play%20Pyongyang%20Racer%2C%20the%202012%20racing%20game%20from%20Pyongyang.&amp;url=https%3A%2F%2Fpyongyangracer.com%2F" target="_blank" rel="noopener">X</a>
+        <a href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fpyongyangracer.com%2F" target="_blank" rel="noopener">Facebook</a>
+        <a href="https://api.whatsapp.com/send?text=Play%20Pyongyang%20Racer%20https%3A%2F%2Fpyongyangracer.com%2F" target="_blank" rel="noopener">WhatsApp</a>
+        <a href="https://t.me/share/url?url=https%3A%2F%2Fpyongyangracer.com%2F&amp;text=Play%20Pyongyang%20Racer" target="_blank" rel="noopener">Telegram</a>
+        <button type="button" data-share-native hidden>Share from this device</button>
+      </div>
       <p>
         If the server is temporarily offline, use the
         <a href="https://github.com/fossil179/pyongyang-racer/releases/latest">Mac app</a>.
@@ -64,5 +75,6 @@
   <div id="rightcolumn"><img src="racer_images/border2.jpg" width="43" height="600" /></div>
   <div id="footer"><span class="a">| Pyongyang Racer — original Flash streamed with Selkies |</span></div>
 </div>
+<script src="share.js"></script>
 </body>
 </html>

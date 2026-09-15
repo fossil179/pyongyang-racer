@@ -136,4 +136,126 @@ a:hover {
 	border:none;
 }
 
+.share {
+	clear: both;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin: 12px 0;
+	font-size: 12px;
+}
+
+.share span {
+	font-weight: bold;
+	margin-right: 4px;
+}
+
+.share a,
+.share button {
+	display: inline-block;
+	padding: 6px 10px;
+	border: 1px solid #e66300;
+	border-radius: 4px;
+	background: #fff;
+	color: #e66300;
+	text-decoration: none;
+	font: inherit;
+	font-weight: bold;
+	cursor: pointer;
+}
+
+.share a:hover,
+.share button:hover {
+	background: #e66300;
+	color: #fff;
+}
+
+.howto {
+	margin: 10px 0;
+	padding: 10px 12px;
+	background: #fff8f0;
+	border: 1px solid #f0d0b0;
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+#game-frame {
+	display: block;
+	width: 760px;
+	max-width: 100%;
+	height: 640px;
+	margin: 12px 0 6px;
+	border: 0;
+	background: #101318;
+}
+
+@media (max-width: 800px) {
+	body {
+		font-size: 14px;
+	}
+	#wrapper,
+	#header,
+	#navigation,
+	#content,
+	#footer,
+	#textbox {
+		float: none;
+		width: 100%;
+		max-width: 100%;
+		height: auto;
+		min-height: 0;
+		margin: 0;
+		box-sizing: border-box;
+	}
+	#header {
+		margin-top: 0;
+	}
+	#header img {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+	#navigation {
+		padding: 12px 8px;
+		background: #777;
+		line-height: 1.7;
+		text-align: center;
+		height: auto;
+	}
+	#leftcolumn,
+	#rightcolumn {
+		display: none;
+	}
+	#content {
+		padding: 8px;
+	}
+	#textbox {
+		padding: 8px;
+		margin: 0;
+	}
+	#textbox img.imageright,
+	#textbox img.imageleft {
+		float: none;
+		display: block;
+		margin: 0 auto 12px;
+		max-width: 60%;
+		height: auto;
+	}
+	#game-frame {
+		width: 100%;
+		height: calc(100vw * 500 / 760 + 96px);
+		min-height: 280px;
+		max-height: 78vh;
+	}
+	#footer {
+		padding: 12px 8px;
+	}
+	table {
+		display: block;
+		width: 100%;
+		overflow-x: auto;
+	}
+}
+
 

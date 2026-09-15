@@ -22,7 +22,7 @@
 | VM | Expected result |
 |----|-----------------|
 | Shared/free micro VM | Not recommended; encoding will frequently stall |
-| **2 vCPU / 4 GB** | Minimum for one player |
+| **2 vCPU / 4 GB** | Minimum for a 760×500 stream |
 | **4 vCPU / 8 GB** | Current production size; target 8 isolated sessions |
 | Supported GPU VM | Best streaming result using hardware H.264 |
 

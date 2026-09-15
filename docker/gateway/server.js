@@ -544,7 +544,7 @@ function statusCodeFor(status) {
 function shellHtml(status, nonce) {
   const active = status.state === 'active';
   const message = active
-    ? 'Your turn is ready. The game session lasts up to 15 minutes.'
+    ? 'Your game is ready. This session lasts up to 15 minutes.'
     : status.message || (
       status.reason === 'capacity'
         ? 'The queue is full. Please try again later.'
@@ -557,36 +557,109 @@ function shellHtml(status, nonce) {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Pyongyang Racer queue</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Pyongyang Racer</title>
   <style>
     :root{color-scheme:dark;font-family:system-ui,sans-serif;background:#101318;color:#f4f5f7}
-    body{margin:0;min-height:100vh;display:grid;place-items:center}
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:#101318;color:#f4f5f7}
+    body{min-height:100dvh;display:grid;place-items:center;padding:max(8px,env(safe-area-inset-top)) 8px max(8px,env(safe-area-inset-bottom))}
     main{width:min(920px,100%);text-align:center}
-    #status{padding:1rem;font-size:1.05rem}
-    #game{display:${active ? 'block' : 'none'};width:min(100%,760px);height:auto;aspect-ratio:760/500;margin:auto;border:0;background:#000}
-    .note{color:#aeb7c4;font-size:.9rem}
+    #status{padding:.75rem .5rem;font-size:1.05rem}
+    #playfield{position:relative;display:${active ? 'block' : 'none'};width:min(100%,760px);margin:0 auto;background:#000}
+    #game{display:block;width:100%;height:auto;aspect-ratio:760/500;border:0;background:#000}
+    .note{color:#aeb7c4;font-size:.9rem;margin:.75rem .5rem}
+    #touch-controls{display:none;position:absolute;inset:0;pointer-events:none;z-index:3}
+    #touch-controls .pad{position:absolute;bottom:max(8px,env(safe-area-inset-bottom));display:flex;gap:8px;pointer-events:auto}
+    #touch-controls .pad-left{left:max(8px,env(safe-area-inset-left))}
+    #touch-controls .pad-right{right:max(8px,env(safe-area-inset-right));flex-direction:column}
+    .ctl{width:56px;height:56px;border:2px solid rgba(255,255,255,.35);border-radius:12px;background:rgba(16,19,24,.72);color:#fff;font-size:20px;font-weight:700;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+    .ctl:active{background:rgba(230,99,0,.55);border-color:#e66300}
+    @media (pointer:coarse),(max-width:800px){
+      body{place-items:start center}
+      #touch-controls{display:block}
+      .ctl{width:64px;height:64px}
+    }
   </style>
 </head>
 <body>
   <main>
     <div id="status" role="status" aria-live="polite">${message}</div>
-    <iframe id="game" title="Pyongyang Racer" ${active ? 'src="/stream/"' : ''}
-      allow="autoplay; fullscreen; gamepad; screen-wake-lock; clipboard-read; clipboard-write"></iframe>
-    <p class="note">Keep this page open to retain your place or active turn.</p>
+    <div id="playfield">
+      <iframe id="game" title="Pyongyang Racer" ${active ? 'src="/stream/"' : ''}
+        allow="autoplay; fullscreen; gamepad; screen-wake-lock; clipboard-read; clipboard-write"></iframe>
+      <div id="touch-controls">
+        <div class="pad pad-left">
+          <button type="button" class="ctl" data-key="ArrowLeft" aria-label="Steer left">◀</button>
+          <button type="button" class="ctl" data-key="ArrowRight" aria-label="Steer right">▶</button>
+        </div>
+        <div class="pad pad-right">
+          <button type="button" class="ctl" data-key="ArrowUp" aria-label="Accelerate">▲</button>
+          <button type="button" class="ctl" data-key="ArrowDown" aria-label="Brake">▼</button>
+          <button type="button" class="ctl" data-key=" " aria-label="Honk">H</button>
+        </div>
+      </div>
+    </div>
+    <p class="note">Keep this page open to retain your place. On a phone, use the on-screen buttons. Click or tap the game once for sound.</p>
   </main>
   <script nonce="${nonce}">
     const initial = ${initialStatus};
     const statusNode = document.getElementById('status');
+    const playfield = document.getElementById('playfield');
     const game = document.getElementById('game');
+    const held = Object.create(null);
+    const keyCodeFor = {ArrowLeft:37,ArrowRight:39,ArrowUp:38,ArrowDown:40,' ':32};
     let mode = initial.state;
+    function sendKey(key, type) {
+      const win = game.contentWindow;
+      if (!win) return;
+      const event = new KeyboardEvent(type, {
+        key: key,
+        code: key === ' ' ? 'Space' : key,
+        keyCode: keyCodeFor[key] || 0,
+        which: keyCodeFor[key] || 0,
+        bubbles: true,
+        cancelable: true
+      });
+      win.dispatchEvent(event);
+      try { win.document.dispatchEvent(event); } catch (_) {}
+    }
+    function releaseAll() {
+      Object.keys(held).forEach((key) => {
+        if (!held[key]) return;
+        held[key] = false;
+        sendKey(key, 'keyup');
+      });
+    }
+    document.querySelectorAll('.ctl').forEach((btn) => {
+      const key = btn.getAttribute('data-key');
+      const down = (event) => {
+        event.preventDefault();
+        if (held[key]) return;
+        held[key] = true;
+        sendKey(key, 'keydown');
+      };
+      const up = (event) => {
+        event.preventDefault();
+        if (!held[key]) return;
+        held[key] = false;
+        sendKey(key, 'keyup');
+      };
+      btn.addEventListener('touchstart', down, {passive:false});
+      btn.addEventListener('touchend', up, {passive:false});
+      btn.addEventListener('touchcancel', up, {passive:false});
+      btn.addEventListener('mousedown', down);
+      btn.addEventListener('mouseup', up);
+      btn.addEventListener('mouseleave', up);
+    });
+    window.addEventListener('blur', releaseAll);
     function render(data) {
       mode = data.state;
       if (data.state === 'active') {
-        statusNode.textContent = 'Your turn is ready. Time remaining: ' +
+        statusNode.textContent = 'Your game is ready. Time remaining: ' +
           Math.max(0, data.remainingSeconds) + ' seconds.';
-        if (!game.src) game.src = '/stream/';
-        game.style.display = 'block';
+        if (!game.getAttribute('src')) game.src = '/stream/';
+        playfield.style.display = 'block';
       } else {
         statusNode.textContent = data.message ||
           (data.reason === 'capacity' ? 'The queue is full. Please try again later.' :
@@ -594,7 +667,8 @@ function shellHtml(status, nonce) {
           data.state === 'starting' ? ${JSON.stringify(STARTING_MESSAGE)} :
           'Waiting for a queue place...');
         game.removeAttribute('src');
-        game.style.display = 'none';
+        playfield.style.display = 'none';
+        releaseAll();
       }
     }
     async function update() {

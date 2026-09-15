@@ -58,7 +58,7 @@ Full details: [docker/SECURITY.md](../docker/SECURITY.md)
 
 ## Performance (summary)
 
-A 2-vCPU/4-GB VM is the minimum recommended size for one 760×500 stream.
+A 2-vCPU/4-GB VM is the minimum recommended size for a 760×500 stream.
 This deployment starts **one isolated session per player**, defaulting to
 eight simultaneous players on a 4-vCPU/8-GB VM, with a 15-minute maximum turn.
 
