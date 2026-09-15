@@ -7,8 +7,8 @@ This document describes what is exposed, what is protected, and recommended hard
 | Layer | Exposed? | Notes |
 |-------|----------|-------|
 | **Cloud VM (host)** | No (via game URL) | Only HTTP/HTTPS are public. SSH (22) is separate and key-only. |
-| **Queue gateway** | Yes, through Caddy | Issues anonymous queue identities and admits one active player. |
-| **Selkies container** | No | Streams the isolated X display and PulseAudio monitor only to the gateway. |
+| **Queue gateway** | Yes, through Caddy | Issues anonymous identities and starts one isolated session per player. |
+| **Selkies containers** | No | Each active player gets a private Flash/Xvfb/Selkies container. |
 | **Full VM desktop** | No | There is no window manager or terminal in the game container. |
 
 Closing Flash shows a black screen until supervisor restarts it. Players cannot
@@ -26,22 +26,23 @@ browse the host filesystem or launch a shell through the stream.
   cookies. Queue state is held in gateway memory and disappears on restart.
 - One identity is active for at most 15 minutes. A shell heartbeat keeps the
   turn alive; 60 seconds without one releases it. Waiting entries expire after
-  five minutes without polling.
-- The defaults allow 50 waiting entries, one active/waiting entry per client
-  IP, and 120 queue-control requests per IP per minute. These values are
-  configurable in `.env`.
+  five minutes without polling. Starting a private container can take up to
+  two minutes before it is treated as failed.
+- The defaults allow 8 simultaneous isolated sessions, 50 waiting entries, one
+  session per client IP, and 120 queue-control requests per IP per minute.
+  These values are configurable in `.env`.
 
 ### Residual risks
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
 | Weak/leaked upstream password | High | Auto-generated password stays on the server; rotate it after disclosure |
-| Shared session interference | Medium | Only the active random identity may proxy stream HTTP or WebSockets |
+| Shared session interference | Low | Each player is proxied only to their own container |
 | Gateway restart | Medium | Queue is intentionally in-memory; users must rejoin after restart |
 | Proxy/IP misconfiguration | Medium | Caddy overwrites `X-Forwarded-For`; never publish gateway port 8080 |
 | In-process denial of service | Medium | Capacity, one-entry-per-IP, expiry and basic limits; use an edge/WAF for hostile traffic |
 | Old Flash runtime in container | Medium | Non-root container, no host mounts, and only the bundled SWF is launched |
-| Docker escape → host | Low | Standard container isolation; keep Docker updated on the VM |
+| Docker escape → host | Medium | The gateway mounts the Docker socket so it can start player containers. Create config is hardcoded to the game image, unprivileged, and `cap_drop: ALL`. Keep Docker updated. |
 
 ## Container hardening (docker-compose.yml)
 

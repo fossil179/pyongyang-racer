@@ -1,16 +1,193 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const fs = require('node:fs');
 const http = require('node:http');
 const net = require('node:net');
+const os = require('node:os');
 const httpProxy = require('http-proxy');
 
 const COOKIE_NAME = '__Host-racer_queue';
 const NEXT_MESSAGE = 'This game is popular! You are in the queue and are the next to play!';
+const STARTING_MESSAGE = 'Your private game is starting. This usually takes under a minute.';
+const SESSION_LABEL = 'racer.session';
 
 function positiveInt(value, fallback) {
   const parsed = Number.parseInt(value, 10);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function immediateRuntime(defaultTarget) {
+  return {
+    kind: 'immediate',
+    start() {
+      return { target: defaultTarget };
+    },
+    stop() {}
+  };
+}
+
+function dockerRequest(socketPath, method, path, body) {
+  return new Promise((resolve, reject) => {
+    const payload = body === undefined ? null : JSON.stringify(body);
+    const headers = {};
+    if (payload !== null) {
+      headers['Content-Type'] = 'application/json';
+      headers['Content-Length'] = Buffer.byteLength(payload);
+    }
+    const req = http.request({
+      socketPath,
+      path,
+      method,
+      headers
+    }, (res) => {
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        const text = Buffer.concat(chunks).toString();
+        let json = {};
+        if (text) {
+          try {
+            json = JSON.parse(text);
+          } catch {
+            json = { message: text };
+          }
+        }
+        if (res.statusCode >= 400) {
+          const error = new Error(json.message || text || `Docker API ${res.statusCode}`);
+          error.statusCode = res.statusCode;
+          reject(error);
+          return;
+        }
+        resolve(json);
+      });
+    });
+    req.on('error', reject);
+    if (payload !== null) req.write(payload);
+    req.end();
+  });
+}
+
+function waitForHttp(url, auth, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  return new Promise((resolve, reject) => {
+    const attempt = () => {
+      if (Date.now() > deadline) {
+        reject(new Error(`session at ${url} did not become ready in time`));
+        return;
+      }
+      const req = http.get(url, {
+        headers: { Authorization: auth },
+        timeout: 2000
+      }, (res) => {
+        res.resume();
+        if (res.statusCode && res.statusCode < 500) {
+          resolve();
+          return;
+        }
+        setTimeout(attempt, 1000);
+      });
+      req.on('error', () => setTimeout(attempt, 1000));
+      req.on('timeout', () => {
+        req.destroy();
+        setTimeout(attempt, 1000);
+      });
+    };
+    attempt();
+  });
+}
+
+class DockerRuntime {
+  constructor(options = {}) {
+    this.kind = 'docker';
+    this.socketPath = options.socketPath || '/var/run/docker.sock';
+    this.image = options.image;
+    this.network = options.network;
+    this.user = options.user;
+    this.password = options.password;
+    this.memoryMb = options.memoryMb || 768;
+    this.shmSizeMb = options.shmSizeMb || 128;
+    this.startTimeoutMs = options.startTimeoutMs || 120_000;
+    this.auth = `Basic ${Buffer.from(`${this.user}:${this.password}`).toString('base64')}`;
+  }
+
+  request(method, path, body) {
+    return dockerRequest(this.socketPath, method, path, body);
+  }
+
+  async init() {
+    await this.request('GET', '/_ping');
+    if (!this.network) {
+      const self = await this.request('GET', `/containers/${os.hostname()}/json`);
+      const networks = Object.keys(self.NetworkSettings?.Networks || {});
+      this.network = networks[0];
+    }
+    if (!this.image || !this.network) {
+      throw new Error('SESSION_IMAGE and a Docker network are required');
+    }
+    await this.reapOrphans();
+  }
+
+  async reapOrphans() {
+    const filters = encodeURIComponent(JSON.stringify({ label: [`${SESSION_LABEL}=true`] }));
+    const containers = await this.request('GET', `/containers/json?all=1&filters=${filters}`);
+    await Promise.all((containers || []).map((container) => this.remove(container.Id)));
+  }
+
+  async remove(id) {
+    if (!id) return;
+    try {
+      await this.request('DELETE', `/containers/${id}?force=true`);
+    } catch (error) {
+      if (error.statusCode !== 404) throw error;
+    }
+  }
+
+  async start(id) {
+    const name = `racer-session-${id}`;
+    await this.remove(name);
+    const memoryBytes = this.memoryMb * 1024 * 1024;
+    const created = await this.request('POST', `/containers/create?name=${encodeURIComponent(name)}`, {
+      Image: this.image,
+      Env: [
+        `STREAM_USER=${this.user}`,
+        `STREAM_PASSWORD=${this.password}`
+      ],
+      Labels: {
+        [SESSION_LABEL]: 'true',
+        'racer.player': id
+      },
+      HostConfig: {
+        CapDrop: ['ALL'],
+        SecurityOpt: ['no-new-privileges:true'],
+        ShmSize: this.shmSizeMb * 1024 * 1024,
+        Memory: memoryBytes,
+        MemorySwap: memoryBytes,
+        NetworkMode: this.network,
+        RestartPolicy: { Name: 'no' },
+        Tmpfs: { '/tmp': 'size=128M,mode=1777' },
+        PidsLimit: 256
+      }
+    });
+    const containerId = created.Id;
+    try {
+      await this.request('POST', `/containers/${containerId}/start`);
+      const inspect = await this.request('GET', `/containers/${containerId}/json`);
+      const endpoint = inspect.NetworkSettings?.Networks?.[this.network];
+      const ip = endpoint?.IPAddress;
+      if (!ip) throw new Error('session container has no IP address');
+      const target = `http://${ip}:6080`;
+      await waitForHttp(target, this.auth, this.startTimeoutMs);
+      return { target, containerId, name };
+    } catch (error) {
+      await this.remove(containerId);
+      throw error;
+    }
+  }
+
+  async stop(session) {
+    await this.remove(session?.handle?.containerId || session?.handle?.name);
+  }
 }
 
 class QueueManager {
@@ -19,20 +196,35 @@ class QueueManager {
     this.maxActiveMs = options.maxActiveMs || 15 * 60_000;
     this.heartbeatMs = options.heartbeatMs || 60_000;
     this.waitingExpiryMs = options.waitingExpiryMs || 5 * 60_000;
+    this.startTimeoutMs = options.startTimeoutMs || 120_000;
     this.capacity = options.capacity || 50;
+    this.slots = options.slots || 1;
+    this.runtime = options.runtime || immediateRuntime(options.defaultTarget || 'http://127.0.0.1:9');
     this.entries = new Map();
     this.queue = [];
-    this.active = null;
+    this.sessions = new Map();
+  }
+
+  activeCount() {
+    return [...this.sessions.values()].filter((session) => session.state === 'active').length;
+  }
+
+  usedSlots() {
+    return this.sessions.size;
   }
 
   maintain() {
     const now = this.now();
-    if (this.active && (
-      now - this.active.startedAt >= this.maxActiveMs ||
-      now - this.active.lastHeartbeat >= this.heartbeatMs
-    )) {
-      this.entries.delete(this.active.id);
-      this.active = null;
+    for (const [id, session] of this.sessions) {
+      const waitingTooLongToStart = session.state === 'starting' &&
+        now - session.startedAt >= this.startTimeoutMs;
+      const turnExpired = session.state === 'active' &&
+        now - session.startedAt >= this.maxActiveMs;
+      const heartbeatExpired = session.state === 'active' &&
+        now - session.lastHeartbeat >= this.heartbeatMs;
+      if (waitingTooLongToStart || turnExpired || heartbeatExpired) {
+        this.reap(id);
+      }
     }
 
     this.queue = this.queue.filter((id) => {
@@ -46,27 +238,108 @@ class QueueManager {
     this.promote();
   }
 
+  reap(id) {
+    const session = this.sessions.get(id);
+    this.sessions.delete(id);
+    this.entries.delete(id);
+    if (session) {
+      Promise.resolve(this.runtime.stop(session)).catch((error) => {
+        console.error('failed to stop session', id, error);
+      });
+    }
+  }
+
+  begin(id, ip) {
+    const now = this.now();
+    const previous = this.entries.get(id);
+    const session = {
+      id,
+      ip,
+      state: 'starting',
+      startedAt: now,
+      lastHeartbeat: now,
+      attempts: previous?.attempts || 0,
+      target: null,
+      handle: null
+    };
+    this.entries.set(id, { id, ip, joinedAt: now, lastSeen: now, attempts: session.attempts });
+    this.sessions.set(id, session);
+    this.launch(session);
+  }
+
+  launch(session) {
+    session.attempts += 1;
+    const entry = this.entries.get(session.id);
+    if (entry) entry.attempts = session.attempts;
+    session.state = 'starting';
+    session.startedAt = this.now();
+    let started;
+    try {
+      started = this.runtime.start(session.id);
+    } catch (error) {
+      this.failStart(session, error);
+      return;
+    }
+    if (started && typeof started.then === 'function') {
+      started.then((handle) => this.activate(session, handle), (error) => this.failStart(session, error));
+      return;
+    }
+    this.activate(session, started);
+  }
+
+  activate(session, handle) {
+    if (this.sessions.get(session.id) !== session) {
+      Promise.resolve(this.runtime.stop({ handle })).catch(() => {});
+      return;
+    }
+    session.handle = handle;
+    session.target = handle.target;
+    session.state = 'active';
+    session.lastHeartbeat = this.now();
+    console.log(`session ready id=${session.id.slice(0, 8)} target=${session.target}`);
+  }
+
+  failStart(session, error) {
+    console.error('session start failed', session.id, error);
+    if (this.sessions.get(session.id) !== session) return;
+    this.sessions.delete(session.id);
+    if (session.attempts < 2 && this.entries.has(session.id)) {
+      this.queue.unshift(session.id);
+    } else {
+      this.entries.delete(session.id);
+    }
+    this.promote();
+  }
+
   promote() {
-    if (this.active) return;
-    while (this.queue.length) {
+    while (this.usedSlots() < this.slots && this.queue.length) {
       const id = this.queue.shift();
       const entry = this.entries.get(id);
       if (!entry) continue;
-      const now = this.now();
-      this.active = {
-        id,
-        ip: entry.ip,
-        startedAt: now,
-        lastHeartbeat: now
-      };
-      return;
+      this.begin(id, entry.ip);
     }
+  }
+
+  ipInUse(id, ip) {
+    for (const session of this.sessions.values()) {
+      if (session.id !== id && session.ip === ip) return true;
+    }
+    return this.queue.some((queuedId) => {
+      const queued = this.entries.get(queuedId);
+      return queuedId !== id && queued?.ip === ip;
+    });
   }
 
   admit(id, ip) {
     this.maintain();
     const now = this.now();
-    if (this.active?.id === id) return this.status(id);
+    if (this.sessions.has(id)) {
+      const session = this.sessions.get(id);
+      session.lastHeartbeat = now;
+      const entry = this.entries.get(id);
+      if (entry) entry.lastSeen = now;
+      return this.status(id);
+    }
 
     const existing = this.entries.get(id);
     if (existing && this.queue.includes(id)) {
@@ -75,15 +348,10 @@ class QueueManager {
       return this.status(id);
     }
 
-    const ipInUse = this.active?.ip === ip || this.queue.some((queuedId) => {
-      const queued = this.entries.get(queuedId);
-      return queued?.ip === ip;
-    });
-    if (ipInUse) return { state: 'denied', reason: 'ip_limit' };
+    if (this.ipInUse(id, ip)) return { state: 'denied', reason: 'ip_limit' };
 
-    if (!this.active) {
-      this.entries.set(id, { id, ip, joinedAt: now, lastSeen: now });
-      this.active = { id, ip, startedAt: now, lastHeartbeat: now };
+    if (this.usedSlots() < this.slots) {
+      this.begin(id, ip);
       return this.status(id);
     }
     if (this.queue.length >= this.capacity) {
@@ -97,25 +365,62 @@ class QueueManager {
 
   heartbeat(id) {
     this.maintain();
-    if (this.active?.id !== id) return this.status(id);
-    this.active.lastHeartbeat = this.now();
+    const session = this.sessions.get(id);
+    if (!session) return this.status(id);
+    session.lastHeartbeat = this.now();
+    const entry = this.entries.get(id);
+    if (entry) entry.lastSeen = session.lastHeartbeat;
     return this.status(id);
   }
 
   isActive(id) {
     this.maintain();
-    return this.active?.id === id;
+    const session = this.sessions.get(id);
+    return session?.state === 'active' && Boolean(session.target);
+  }
+
+  getTarget(id) {
+    const session = this.sessions.get(id);
+    return session?.state === 'active' ? session.target : null;
+  }
+
+  snapshot() {
+    this.maintain();
+    return {
+      slots: this.slots,
+      active: this.activeCount(),
+      starting: [...this.sessions.values()].filter((session) => session.state === 'starting').length,
+      waiting: this.queue.length
+    };
+  }
+
+  async stopAll() {
+    const ids = [...this.sessions.keys()];
+    await Promise.all(ids.map(async (id) => {
+      const session = this.sessions.get(id);
+      this.sessions.delete(id);
+      this.entries.delete(id);
+      try {
+        await this.runtime.stop(session);
+      } catch (error) {
+        console.error('failed to stop session', id, error);
+      }
+    }));
   }
 
   status(id) {
-    if (this.active?.id === id) {
+    const session = this.sessions.get(id);
+    if (session?.state === 'active') {
       return {
         state: 'active',
         remainingSeconds: Math.max(
           0,
-          Math.ceil((this.maxActiveMs - (this.now() - this.active.startedAt)) / 1000)
+          Math.ceil((this.maxActiveMs - (this.now() - session.startedAt)) / 1000)
         )
       };
+    }
+    if (session?.state === 'starting') {
+      return { state: 'starting', message: STARTING_MESSAGE };
     }
     const index = this.queue.indexOf(id);
     if (index >= 0) {
@@ -274,31 +579,29 @@ function shellHtml(status, nonce) {
     const initial = ${initialStatus};
     const statusNode = document.getElementById('status');
     const game = document.getElementById('game');
-    let wasActive = initial.state === 'active';
+    let mode = initial.state;
     function render(data) {
+      mode = data.state;
       if (data.state === 'active') {
         statusNode.textContent = 'Your turn is ready. Time remaining: ' +
           Math.max(0, data.remainingSeconds) + ' seconds.';
         if (!game.src) game.src = '/stream/';
         game.style.display = 'block';
-        wasActive = true;
       } else {
         statusNode.textContent = data.message ||
           (data.reason === 'capacity' ? 'The queue is full. Please try again later.' :
           data.reason === 'ip_limit' ? 'Pyongyang has more traffic now than when we made the game in 2012.' :
+          data.state === 'starting' ? ${JSON.stringify(STARTING_MESSAGE)} :
           'Waiting for a queue place...');
-        if (wasActive) {
-          game.removeAttribute('src');
-          game.style.display = 'none';
-          wasActive = false;
-        }
+        game.removeAttribute('src');
+        game.style.display = 'none';
       }
     }
     async function update() {
       try {
-        const endpoint = wasActive ? '/api/heartbeat' : '/api/status';
+        const endpoint = (mode === 'active' || mode === 'starting') ? '/api/heartbeat' : '/api/status';
         const response = await fetch(endpoint, {
-          method: wasActive ? 'POST' : 'GET',
+          method: (mode === 'active' || mode === 'starting') ? 'POST' : 'GET',
           cache: 'no-store',
           credentials: 'same-origin'
         });
@@ -309,30 +612,63 @@ function shellHtml(status, nonce) {
     }
     setInterval(update, 15000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) update(); });
+    if (initial.state === 'starting') {
+      const startPoll = setInterval(async () => {
+        await update();
+        if (mode !== 'starting') clearInterval(startPoll);
+      }, 2000);
+    }
   </script>
 </body>
 </html>`;
 }
 
+function createSessionRuntime(env, options, upstream) {
+  if (options.runtime) return options.runtime;
+  const image = options.sessionImage ?? env.SESSION_IMAGE;
+  const socketPath = options.dockerSocket ?? env.DOCKER_SOCKET ?? '/var/run/docker.sock';
+  if (image) {
+    if (!fs.existsSync(socketPath)) {
+      throw new Error(`SESSION_IMAGE is set but Docker socket ${socketPath} is missing`);
+    }
+    return new DockerRuntime({
+      socketPath,
+      image,
+      network: options.sessionNetwork ?? env.SESSION_NETWORK,
+      user: options.upstreamUser ?? env.STREAM_USER,
+      password: options.upstreamPassword ?? env.STREAM_PASSWORD,
+      memoryMb: positiveInt(env.SESSION_MEMORY_MB, 768),
+      shmSizeMb: positiveInt(env.SESSION_SHM_SIZE_MB, 128),
+      startTimeoutMs: positiveInt(env.SESSION_START_TIMEOUT_SECONDS, 120) * 1000
+    });
+  }
+  return immediateRuntime(upstream);
+}
+
 function createGateway(options = {}) {
   const env = options.env || process.env;
-  const queue = options.queue || new QueueManager({
-    maxActiveMs: positiveInt(env.MAX_ACTIVE_SECONDS, 900) * 1000,
-    heartbeatMs: positiveInt(env.HEARTBEAT_TIMEOUT_SECONDS, 60) * 1000,
-    waitingExpiryMs: positiveInt(env.WAITING_EXPIRY_SECONDS, 300) * 1000,
-    capacity: positiveInt(env.QUEUE_CAPACITY, 50)
-  });
-  const trustProxy = options.trustProxy ?? env.TRUST_PROXY === 'true';
-  const embedOrigins = allowedEmbedOrigins(
-    options.embedOrigins ?? env.EMBED_ORIGINS ??
-      'https://pyongyangracer.com http://pyongyangracer.com'
-  );
   const upstream = options.upstream || env.UPSTREAM_URL || 'http://pyongyang-racer:6080';
   const upstreamUser = options.upstreamUser ?? env.STREAM_USER;
   const upstreamPassword = options.upstreamPassword ?? env.STREAM_PASSWORD;
   if (!upstreamUser || !upstreamPassword) {
     throw new Error('STREAM_USER and STREAM_PASSWORD are required');
   }
+  const runtime = createSessionRuntime(env, options, upstream);
+  const queue = options.queue || new QueueManager({
+    maxActiveMs: positiveInt(env.MAX_ACTIVE_SECONDS, 900) * 1000,
+    heartbeatMs: positiveInt(env.HEARTBEAT_TIMEOUT_SECONDS, 60) * 1000,
+    waitingExpiryMs: positiveInt(env.WAITING_EXPIRY_SECONDS, 300) * 1000,
+    startTimeoutMs: positiveInt(env.SESSION_START_TIMEOUT_SECONDS, 120) * 1000,
+    capacity: positiveInt(env.QUEUE_CAPACITY, 50),
+    slots: options.slots || positiveInt(env.SESSION_SLOTS, 8),
+    runtime,
+    defaultTarget: upstream
+  });
+  const trustProxy = options.trustProxy ?? env.TRUST_PROXY === 'true';
+  const embedOrigins = allowedEmbedOrigins(
+    options.embedOrigins ?? env.EMBED_ORIGINS ??
+      'https://pyongyangracer.com http://pyongyangracer.com'
+  );
   const auth = `Basic ${Buffer.from(`${upstreamUser}:${upstreamPassword}`).toString('base64')}`;
   const limiter = options.limiter || new RateLimiter(
     positiveInt(env.RATE_LIMIT_REQUESTS, 120),
@@ -378,7 +714,7 @@ function createGateway(options = {}) {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://gateway.invalid');
     if (url.pathname === '/healthz') {
-      sendJson(res, 200, { status: 'ok' });
+      sendJson(res, 200, { status: 'ok', allocator: runtime.kind, ...queue.snapshot() });
       return;
     }
 
@@ -391,7 +727,7 @@ function createGateway(options = {}) {
         return;
       }
       req.headers.authorization = auth;
-      proxy.web(req, res);
+      proxy.web(req, res, { target: queue.getTarget(identity.id) });
       return;
     }
 
@@ -436,7 +772,7 @@ function createGateway(options = {}) {
       return;
     }
     req.headers.authorization = auth;
-    proxy.ws(req, socket, head);
+    proxy.ws(req, socket, head, { target: queue.getTarget(identity.id) });
   });
 
   const cleanup = setInterval(() => {
@@ -447,25 +783,45 @@ function createGateway(options = {}) {
   server.on('close', () => {
     clearInterval(cleanup);
     proxy.close();
+    queue.stopAll().catch((error) => {
+      console.error('failed to stop sessions on shutdown', error);
+    });
   });
-  return { server, queue, limiter };
+  return { server, queue, limiter, runtime };
+}
+
+async function startGateway() {
+  const port = positiveInt(process.env.PORT, 8080);
+  const { server, runtime, queue } = createGateway();
+  if (typeof runtime.init === 'function') {
+    await runtime.init();
+  }
+  await new Promise((resolve) => {
+    server.listen(port, '0.0.0.0', resolve);
+  });
+  console.log(`Session allocator listening on port ${port} slots=${queue.slots} runtime=${runtime.kind}`);
+  const shutdown = () => {
+    server.close(() => {
+      queue.stopAll().finally(() => process.exit(0));
+    });
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 if (require.main === module) {
-  const port = positiveInt(process.env.PORT, 8080);
-  const { server } = createGateway();
-  server.listen(port, '0.0.0.0', () => {
-    console.log(`Queue gateway listening on port ${port}`);
+  startGateway().catch((error) => {
+    console.error(error);
+    process.exit(1);
   });
-  const shutdown = () => server.close(() => process.exit(0));
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
 }
 
 module.exports = {
   COOKIE_NAME,
   NEXT_MESSAGE,
+  STARTING_MESSAGE,
   QueueManager,
   RateLimiter,
+  DockerRuntime,
   createGateway
 };

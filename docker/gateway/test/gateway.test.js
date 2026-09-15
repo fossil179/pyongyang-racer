@@ -49,10 +49,17 @@ function cookieFrom(response) {
   return response.headers['set-cookie'][0].split(';', 1)[0];
 }
 
+const testEnv = {
+  STREAM_USER: 'private-user',
+  STREAM_PASSWORD: 'private-password'
+};
+
 test('serves anonymous shell and queues visitors in order', async (t) => {
   const upstream = http.createServer((_req, res) => res.end('upstream'));
   const upstreamPort = await listen(upstream);
   const { server } = createGateway({
+    env: testEnv,
+    slots: 1,
     upstream: `http://127.0.0.1:${upstreamPort}`,
     upstreamUser: 'private-user',
     upstreamPassword: 'private-password',
@@ -146,6 +153,8 @@ test('proxies only the active identity and injects upstream auth', async (t) => 
   });
   const upstreamPort = await listen(upstream);
   const { server } = createGateway({
+    env: testEnv,
+    slots: 1,
     upstream: `http://127.0.0.1:${upstreamPort}`,
     upstreamUser: 'secret-user',
     upstreamPassword: 'secret-pass',
@@ -184,6 +193,8 @@ test('proxies active WebSocket upgrades with rewritten route and auth', async (t
   });
   const upstreamPort = await listen(upstream);
   const { server } = createGateway({
+    env: testEnv,
+    slots: 1,
     upstream: `http://127.0.0.1:${upstreamPort}`,
     upstreamUser: 'ws-user',
     upstreamPassword: 'ws-pass',
@@ -218,4 +229,77 @@ test('proxies active WebSocket upgrades with rewritten route and auth', async (t
     authorization: `Basic ${Buffer.from('ws-user:ws-pass').toString('base64')}`,
     cookie: undefined
   });
+});
+
+test('admits several isolated sessions up to the slot cap', () => {
+  const started = [];
+  const stopped = [];
+  const queue = new QueueManager({
+    slots: 2,
+    capacity: 5,
+    runtime: {
+      start(id) {
+        started.push(id);
+        return { target: `http://127.0.0.1/${id}`, containerId: id };
+      },
+      stop(session) {
+        stopped.push(session.id);
+      }
+    }
+  });
+
+  assert.equal(queue.admit('a', '192.0.2.1').state, 'active');
+  assert.equal(queue.admit('b', '192.0.2.2').state, 'active');
+  assert.equal(queue.admit('c', '192.0.2.3').state, 'waiting');
+  assert.equal(queue.getTarget('a'), 'http://127.0.0.1/a');
+  assert.equal(queue.getTarget('b'), 'http://127.0.0.1/b');
+  assert.deepEqual(started, ['a', 'b']);
+
+  queue.reap('a');
+  queue.maintain();
+  assert.equal(queue.status('c').state, 'active');
+  assert.deepEqual(stopped, ['a']);
+  assert.deepEqual(started, ['a', 'b', 'c']);
+});
+
+test('exposes a starting state until the runtime becomes ready', async () => {
+  let resolveStart;
+  const queue = new QueueManager({
+    slots: 1,
+    runtime: {
+      start() {
+        return new Promise((resolve) => {
+          resolveStart = resolve;
+        });
+      },
+      stop() {}
+    }
+  });
+
+  assert.equal(queue.admit('a', '192.0.2.1').state, 'starting');
+  assert.equal(queue.isActive('a'), false);
+  resolveStart({ target: 'http://127.0.0.1:6080' });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(queue.status('a').state, 'active');
+  assert.equal(queue.isActive('a'), true);
+});
+
+test('reports allocator health with slot usage', async (t) => {
+  const upstream = http.createServer((_req, res) => res.end('upstream'));
+  const upstreamPort = await listen(upstream);
+  const { server } = createGateway({
+    env: testEnv,
+    slots: 8,
+    upstream: `http://127.0.0.1:${upstreamPort}`,
+    upstreamUser: 'private-user',
+    upstreamPassword: 'private-password'
+  });
+  const port = await listen(server);
+  t.after(() => Promise.all([close(server), close(upstream)]));
+
+  const health = await request(port, '/healthz');
+  assert.equal(health.status, 200);
+  assert.match(health.body, /"allocator":"immediate"/);
+  assert.match(health.body, /"slots":8/);
 });

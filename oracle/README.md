@@ -40,9 +40,10 @@ https://game.pyongyangracer.com/
 ```
 
 Caddy obtains a trusted HTTPS certificate automatically after DNS points to
-the VM. Visitors join anonymously; the gateway admits one active player and
-keeps Selkies' password server-side. Click once inside the stream so the
-browser permits audio.
+the VM. Visitors join anonymously; each gets an isolated Flash session, up to
+eight at once on a CPX32-class VM. Extra visitors wait in the queue. The
+gateway keeps Selkies' password server-side. Click once inside the stream so
+the browser permits audio.
 
 ## Security (summary)
 
@@ -58,8 +59,8 @@ Full details: [docker/SECURITY.md](../docker/SECURITY.md)
 ## Performance (summary)
 
 A 2-vCPU/4-GB VM is the minimum recommended size for one 760×500 stream.
-This deployment is a **single shared session** enforced as one active player
-at a time, with a 15-minute maximum turn.
+This deployment starts **one isolated session per player**, defaulting to
+eight simultaneous players on a 4-vCPU/8-GB VM, with a 15-minute maximum turn.
 
 Full details: [docker/PERFORMANCE.md](../docker/PERFORMANCE.md)
 
@@ -82,20 +83,20 @@ docker compose -f docker/docker-compose.yml logs caddy
 Confirm the internal password exists and inspect both services:
 ```bash
 test -s ~/pyongyang-racer/docker/.stream-password
-docker compose -f docker/docker-compose.yml logs queue-gateway pyongyang-racer
+docker compose -f docker/docker-compose.yml logs queue-gateway
+docker ps -f label=racer.session=true
 ```
 
 **No sound**
 Click once inside the player, check that the Selkies speaker control is
 unmuted, then verify the monitor source:
 ```bash
-docker compose -f docker/docker-compose.yml exec pyongyang-racer \
+docker exec "$(docker ps -qf label=racer.session=true | head -n1)" \
   pactl list short sources
 ```
 The output must contain `output.monitor`.
 
 ```bash
-docker compose -f docker/docker-compose.yml logs -f
-docker compose -f docker/docker-compose.yml exec pyongyang-racer \
-  tail -f /tmp/logs/selkies.log /tmp/logs/pulseaudio.log /tmp/logs/flash.log
+docker compose -f docker/docker-compose.yml logs -f queue-gateway caddy
+docker logs "$(docker ps -qf label=racer.session=true | head -n1)"
 ```

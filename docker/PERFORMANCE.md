@@ -23,13 +23,13 @@
 |----|-----------------|
 | Shared/free micro VM | Not recommended; encoding will frequently stall |
 | **2 vCPU / 4 GB** | Minimum for one player |
-| **4 vCPU / 8 GB** | Better frame pacing and latency |
+| **4 vCPU / 8 GB** | Current production size; target 8 isolated sessions |
 | Supported GPU VM | Best streaming result using hardware H.264 |
 
-The current deployment is one shared Flash session. The in-memory gateway
-admits one active browser and keeps later visitors in a bounded queue; it does
-not create independent game processes. Multiple simultaneous players require
-one container/session per player and an orchestrator.
+The live gateway starts one isolated Flash/Selkies container per player, up to
+`SESSION_SLOTS` (default 8). Extra visitors wait in the queue. Idle or expired
+sessions are destroyed. The first start can take up to a minute while Xvfb,
+Flash and Selkies come up.
 
 The queue shell remains the top-level page and embeds Selkies under `/stream/`.
 Its 15-second heartbeat is intentionally independent of Selkies' video and
@@ -48,8 +48,7 @@ WebSocket upgrades.
 
 ```bash
 docker stats
-docker compose -f docker/docker-compose.yml exec pyongyang-racer \
-  tail -f /tmp/logs/selkies.log /tmp/logs/pulseaudio.log /tmp/logs/flash.log
+docker ps -f label=racer.session=true
 curl -fsS https://game.pyongyangracer.com/healthz
 ```
 

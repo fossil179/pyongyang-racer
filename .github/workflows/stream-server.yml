@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - name: Test one-player queue gateway
+      - name: Test session allocator gateway
         working-directory: docker/gateway
         run: |
           npm ci
@@ -50,7 +50,7 @@ jobs:
         run: docker build -t racer-queue-gateway:test docker/gateway
       - name: Smoke-test video and audio services
         run: |
-          docker run -d --name racer-test --shm-size=1g --cap-drop=ALL \
+          docker run -d --name racer-test --shm-size=128m --cap-drop=ALL \
             -e STREAM_USER=ci -e STREAM_PASSWORD=ci-test-password \
             -p 6080:6080 pyongyang-racer-stream:test
           ready=false
