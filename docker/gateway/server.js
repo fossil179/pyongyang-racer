@@ -244,7 +244,7 @@ function shellHtml(status, nonce) {
       status.reason === 'capacity'
         ? 'The queue is full. Please try again later.'
         : status.reason === 'ip_limit'
-          ? 'This network address already has an active or waiting player.'
+          ? 'Pyongyang has more traffic now than when we made the game in 2012.'
           : 'Please wait while your queue place is prepared.'
     );
   const initialStatus = JSON.stringify(status).replaceAll('<', '\\u003c');
@@ -285,7 +285,7 @@ function shellHtml(status, nonce) {
       } else {
         statusNode.textContent = data.message ||
           (data.reason === 'capacity' ? 'The queue is full. Please try again later.' :
-          data.reason === 'ip_limit' ? 'This network address already has an active or waiting player.' :
+          data.reason === 'ip_limit' ? 'Pyongyang has more traffic now than when we made the game in 2012.' :
           'Waiting for a queue place...');
         if (wasActive) {
           game.removeAttribute('src');

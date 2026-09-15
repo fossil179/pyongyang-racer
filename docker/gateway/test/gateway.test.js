@@ -82,7 +82,7 @@ test('serves anonymous shell and queues visitors in order', async (t) => {
 
   const duplicateIp = await request(port, '/', { headers: { 'X-Forwarded-For': '192.0.2.2' } });
   assert.equal(duplicateIp.status, 429);
-  assert.match(duplicateIp.body, /already has an active or waiting player/);
+  assert.match(duplicateIp.body, /Pyongyang has more traffic now than when we made the game in 2012/);
 });
 
 test('expires silent and overlong sessions and promotes first waiter', () => {
