@@ -17,11 +17,25 @@ body {
 #header {
  color: #333;
  width: 900px;
+ position: relative;
  float: left;
  padding:0;
  border:hidden;
  height: 100px;
  margin: 10px 0px 0px 0px;
+}
+
+#header > a:first-child {
+ display: block;
+}
+
+.koryo-logo-link {
+ position: absolute;
+ top: 0;
+ right: 0;
+ width: 13%;
+ height: 100%;
+ z-index: 2;
 }
 #navigation {
  float: left;

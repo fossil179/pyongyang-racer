@@ -1,148 +1,15 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="refresh" content="0; url=racer_play.html" />
+<link rel="canonical" href="https://pyongyangracer.com/racer_play.html" />
 <title>Pyongyang Racer</title>
 <link rel="icon" type="image/png" href="favicon.png" />
-<link type="text/css" href="racer.css" rel="stylesheet" />
-
-
+<script>window.location.replace("racer_play.html");</script>
 </head>
-
 <body>
-
-  <!-- Begin Wrapper -->
-<div id="wrapper">
-   
-         <!-- Begin Header -->
-  <div id="header"><a href="racer.html"><img src="racer_images/racer_header.png" width="900" height="100" border="0" /></a>
-
-</div>
-		 <!-- End Header -->
-		 
-		 <!-- Begin Navigation -->
-         <div id="navigation"><strong>| <a href="racer.html" class="a2">PLAY THE GAME</a> | <a href="racer_play.html" class="a4">FULL GRAPHICS</a> | <a href="racer_about.html" class="a4">ABOUT PYONGYANG RACER</a> | <a href="racer_top10.html" class="a4">TOP 10 CHAMPIONSHIP LIST</a> |</strong></div>
-		 <!-- End Navigation -->
-		 
-		 <!-- Begin Left Column -->
-		 <div id="leftcolumn"><img src="racer_images/border.jpg" width="43" height="500" /></div>
-		 <!-- End Left Column -->
-		 
-		 <!-- Begin Content Column -->
-         <div id="content">
-         <p style="margin:0 0 6px 0;padding:8px 10px;background:#ffe8b3;color:#333;font-size:11px;line-height:1.5;">
-           <strong>Browser version (Ruffle):</strong> This game&rsquo;s 3D world may show checkerboard textures and
-           <strong>invisible walls that block driving</strong> &mdash; a known Ruffle limitation, not a hosting bug.
-           For a fully playable game, <a href="https://github.com/fossil179/pyongyang-racer/releases/latest"><strong>download the Mac app</strong></a>
-           or use <a href="racer_play.html"><strong>Full graphics</strong></a> (correct graphics, driving and browser sound).
-         </p>
-         <div id="game-container" style="position:relative;width:760px;height:500px;background:#000;">
-           <div id="game-loading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#eee;font-size:13px;text-align:center;padding:24px;line-height:1.65;z-index:1000;background:rgba(0,0,0,0.92);pointer-events:auto;">
-             <strong style="font-size:15px;margin-bottom:8px;">Loading Pyongyang Racer&hellip;</strong>
-             <span id="game-loading-detail" style="font-size:11px;color:#ccc;max-width:420px;">
-               Downloading game files. First visit can take 1&ndash;2 minutes.
-             </span>
-             <span style="font-size:11px;color:#aaa;max-width:420px;margin-top:10px;">
-               When the game shows the orange <strong>go now!</strong> button behind this screen, click below to start.
-             </span>
-             <button id="game-loading-dismiss" type="button" disabled style="margin-top:16px;padding:10px 18px;border:0;border-radius:8px;background:#888;color:#fff;font-size:13px;font-weight:700;cursor:not-allowed;">
-               Waiting for game&hellip;
-             </button>
-           </div>
-         </div>
-         <script src="ruffle/ruffle.js"></script>
-         <script>
-           (function () {
-             var loading = document.getElementById("game-loading");
-             var loadingDetail = document.getElementById("game-loading-detail");
-             var dismissBtn = document.getElementById("game-loading-dismiss");
-             var container = document.getElementById("game-container");
-             var loadStarted = Date.now();
-
-             function setLoadingDetail(text) {
-               if (loadingDetail) loadingDetail.textContent = text;
-             }
-
-             function hideLoading() {
-               if (loading) loading.style.display = "none";
-             }
-
-             function enableDismiss() {
-               if (!dismissBtn) return;
-               dismissBtn.disabled = false;
-               dismissBtn.textContent = "I'm ready \u2014 show the game";
-               dismissBtn.style.background = "#e67e00";
-               dismissBtn.style.cursor = "pointer";
-             }
-
-             function dismissHwModal() {
-               var modal = document.getElementById("hardware-acceleration-modal");
-               if (modal) modal.remove();
-             }
-
-             if (dismissBtn) {
-               dismissBtn.addEventListener("click", function () {
-                 if (!dismissBtn.disabled) hideLoading();
-               });
-             }
-
-             window.RufflePlayer = window.RufflePlayer || {};
-             var ruffleScript = document.querySelector('script[src*="ruffle.js"]');
-             var ruffleBase = ruffleScript && ruffleScript.src
-               ? ruffleScript.src.replace(/[^/]+$/, "")
-               : "ruffle/";
-             window.RufflePlayer.config = {
-               publicPath: ruffleBase,
-               autoplay: "on",
-               unmuteOverlay: "hidden",
-               letterbox: "off",
-               warnOnUnsupportedContent: false,
-               splashScreen: false,
-               compatibilityRules: true,
-               preferredRenderer: "wgpu-webgl"
-             };
-             var ruffle = window.RufflePlayer.newest();
-             var player = ruffle.createPlayer();
-             player.style.width = "760px";
-             player.style.height = "500px";
-             container.appendChild(player);
-             container.appendChild(loading);
-             dismissHwModal();
-             setInterval(dismissHwModal, 1000);
-             player.load("PY Racer_0509/PYracer.swf").then(function () {
-               setLoadingDetail("Game files loaded. Waiting for the title screen\u2026");
-               setTimeout(enableDismiss, 20000);
-             }).catch(function () {
-               if (loading) {
-                 loading.innerHTML = "<p style=\"padding:16px;\">Could not load the game. Try refreshing, or use the Mac app from GitHub Releases.</p>";
-               }
-             });
-             setTimeout(function () {
-               if (loading && loading.style.display !== "none" && Date.now() - loadStarted > 30000) {
-                 setLoadingDetail("Still loading\u2026 If you can see go now! behind this screen, click the button below.");
-                 enableDismiss();
-               }
-             }, 30000);
-             setTimeout(function () {
-               if (loading && loading.style.display !== "none") hideLoading();
-             }, 180000);
-           })();
-         </script>
-         </div>
-		 <!-- End Content Column -->
-		 
-		 <!-- Begin Right Column -->
-		 <div id="rightcolumn"><img src="racer_images/border2.jpg" width="43" height="500" /></div>
-		 <!-- End Right Column -->
-		 
-		 <!-- Begin Footer -->
-<div id="footer"><span class="a">| This game was developed in the DPRK (North Korea) by Nosotek  - 2012 || </span><a href="http:/www.koryogroup.com" class="a"> Return back to Koryo Tours home page</a></div>
-		 <!-- End Footer -->
-		 
-</div>
-   <!-- End Wrapper -->
-
+<p><a href="racer_play.html">Play Pyongyang Racer</a></p>
 </body>
 </html>
