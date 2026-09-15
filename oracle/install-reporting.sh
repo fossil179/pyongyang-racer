@@ -14,7 +14,11 @@ SERVER_CREATED_AT="${SERVER_CREATED_AT:-2026-09-14T16:49:00Z}"
 SERVER_HOURLY_EUR="${SERVER_HOURLY_EUR:-0.057}"
 SERVER_MONTHLY_EUR="${SERVER_MONTHLY_EUR:-35.49}"
 
-sudo install -m 0755 oracle/daily-report.py /opt/pyongyang-racer/oracle/daily-report.py
+if [[ "$(realpath oracle/daily-report.py)" == "/opt/pyongyang-racer/oracle/daily-report.py" ]]; then
+  sudo chmod 0755 oracle/daily-report.py
+else
+  sudo install -m 0755 oracle/daily-report.py /opt/pyongyang-racer/oracle/daily-report.py
+fi
 sudo install -m 0644 oracle/pyongyang-racer-report.service \
   /etc/systemd/system/pyongyang-racer-report.service
 sudo install -m 0644 oracle/pyongyang-racer-report.timer \
