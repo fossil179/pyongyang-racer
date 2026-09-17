@@ -72,7 +72,9 @@ test('serves anonymous shell and queues visitors in order', async (t) => {
   const active = await request(port, '/', { headers: { 'X-Forwarded-For': '192.0.2.1' } });
   assert.equal(active.status, 200);
   assert.match(active.body, /src="\/stream\/"/);
-  assert.match(active.body, /Full screen/);
+  assert.doesNotMatch(active.body, /Full screen/);
+  assert.match(active.body, /hover:none\) and \(pointer:coarse\)/);
+  assert.doesNotMatch(active.body, /pointer:coarse\),\(max-width/);
   assert.equal(active.headers['www-authenticate'], undefined);
   assert.match(active.headers['set-cookie'][0], new RegExp(`^${COOKIE_NAME}=`));
   assert.match(active.headers['set-cookie'][0], /HttpOnly; Secure; SameSite=None; Partitioned/);
@@ -85,9 +87,11 @@ test('serves anonymous shell and queues visitors in order', async (t) => {
   const next = await request(port, '/', { headers: { 'X-Forwarded-For': '192.0.2.2' } });
   assert.equal(next.status, 200);
   assert.ok(next.body.includes(NEXT_MESSAGE));
+  assert.match(next.body, /Estimated wait:/);
 
   const later = await request(port, '/', { headers: { 'X-Forwarded-For': '192.0.2.3' } });
   assert.match(later.body, /number 2 in the queue/);
+  assert.match(later.body, /Estimated wait:/);
 
   const duplicateIp = await request(port, '/', { headers: { 'X-Forwarded-For': '192.0.2.2' } });
   assert.equal(duplicateIp.status, 429);
@@ -116,6 +120,40 @@ test('expires silent and overlong sessions and promotes first waiter', () => {
   now += 900_000;
   queue.maintain();
   assert.equal(queue.status('c').state, 'active');
+});
+
+test('estimates queue wait from remaining session time', () => {
+  let now = 0;
+  const queue = new QueueManager({
+    now: () => now,
+    slots: 2,
+    maxActiveMs: 900_000,
+    heartbeatMs: 2_000_000,
+    waitingExpiryMs: 2_000_000,
+    capacity: 10
+  });
+
+  assert.equal(queue.admit('a', '192.0.2.1').state, 'active');
+  now = 300_000;
+  queue.heartbeat('a');
+  assert.equal(queue.admit('b', '192.0.2.2').state, 'active');
+  const first = queue.admit('c', '192.0.2.3');
+  assert.equal(first.state, 'waiting');
+  assert.equal(first.position, 1);
+  assert.equal(first.waitSeconds, 600);
+  assert.match(first.message, /next to play/);
+  assert.match(first.message, /about 10 minutes/);
+
+  const second = queue.admit('d', '192.0.2.4');
+  assert.equal(second.position, 2);
+  assert.equal(second.waitSeconds, 900);
+  assert.match(second.message, /number 2 in the queue/);
+  assert.match(second.message, /about 15 minutes/);
+
+  const third = queue.admit('e', '192.0.2.5');
+  assert.equal(third.position, 3);
+  assert.equal(third.waitSeconds, 1500);
+  assert.match(third.message, /about 25 minutes/);
 });
 
 test('expires abandoned waiters and enforces capacity', () => {

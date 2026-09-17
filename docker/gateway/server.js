@@ -8,9 +8,23 @@ const os = require('node:os');
 const httpProxy = require('http-proxy');
 
 const COOKIE_NAME = '__Host-racer_queue';
-const NEXT_MESSAGE = 'This game is popular! You are in the queue and are the next to play!';
+const NEXT_MESSAGE = 'You are next to play.';
 const STARTING_MESSAGE = 'Your private game is starting. This usually takes under a minute.';
 const SESSION_LABEL = 'racer.session';
+const TYPICAL_BOOT_MS = 45_000;
+
+function formatWait(seconds) {
+  const value = Math.max(0, Number(seconds) || 0);
+  if (value < 45) return 'less than a minute';
+  if (value < 90) return 'about 1 minute';
+  return `about ${Math.round(value / 60)} minutes`;
+}
+
+function waitingMessage(position, waitSeconds) {
+  const wait = formatWait(waitSeconds);
+  if (position === 1) return `${NEXT_MESSAGE} Estimated wait: ${wait}.`;
+  return `You are number ${position} in the queue. Estimated wait: ${wait}.`;
+}
 
 function positiveInt(value, fallback) {
   const parsed = Number.parseInt(value, 10);
@@ -437,6 +451,26 @@ class QueueManager {
     };
   }
 
+  sessionRemainingSeconds(session) {
+    const now = this.now();
+    if (session.state === 'active') {
+      return Math.max(0, Math.ceil((this.maxActiveMs - (now - session.startedAt)) / 1000));
+    }
+    const bootLeft = Math.max(0, TYPICAL_BOOT_MS - (now - session.startedAt));
+    return Math.ceil((bootLeft + this.maxActiveMs) / 1000);
+  }
+
+  waitSecondsForPosition(position) {
+    const slots = Math.max(1, this.slots);
+    const remaining = [...this.sessions.values()]
+      .map((session) => this.sessionRemainingSeconds(session))
+      .sort((a, b) => a - b);
+    while (remaining.length < slots) remaining.push(0);
+    const turnSeconds = Math.ceil(this.maxActiveMs / 1000);
+    const index = Math.max(0, position - 1);
+    return remaining[index % slots] + Math.floor(index / slots) * turnSeconds;
+  }
+
   async stopAll() {
     const ids = [...this.sessions.keys()];
     await Promise.all(ids.map(async (id) => {
@@ -468,12 +502,12 @@ class QueueManager {
     const index = this.queue.indexOf(id);
     if (index >= 0) {
       const position = index + 1;
+      const waitSeconds = this.waitSecondsForPosition(position);
       return {
         state: 'waiting',
         position,
-        message: position === 1
-          ? NEXT_MESSAGE
-          : `This game is popular! You are number ${position} in the queue.`
+        waitSeconds,
+        message: waitingMessage(position, waitSeconds)
       };
     }
     return { state: 'absent' };
@@ -611,10 +645,6 @@ function shellHtml(status, nonce) {
     #status{padding:.75rem .5rem;font-size:1.05rem}
     #playfield{position:relative;display:${active ? 'block' : 'none'};width:min(100%,760px);margin:0 auto;background:#000}
     #game{display:block;width:100%;height:auto;aspect-ratio:760/500;border:0;background:#000}
-    #fullscreen{display:none;position:absolute;top:8px;right:8px;z-index:4;padding:.45rem .8rem;border:0;border-radius:8px;background:rgba(230,99,0,.92);color:#fff;font:inherit;font-weight:700;cursor:pointer;pointer-events:auto}
-    #playfield:fullscreen,#playfield:-webkit-full-screen{width:100%;height:100%;max-width:none;display:flex;align-items:center;justify-content:center;background:#000}
-    #playfield:fullscreen #game,#playfield:-webkit-full-screen #game{width:min(100vw,calc(100vh * 760 / 500));height:min(100vh,calc(100vw * 500 / 760));aspect-ratio:760/500}
-    #playfield:fullscreen #fullscreen,#playfield:-webkit-full-screen #fullscreen{display:inline-block}
     .note{color:#aeb7c4;font-size:.9rem;margin:.75rem .5rem}
     #touch-controls{display:none;position:absolute;inset:0;pointer-events:none;z-index:3}
     #touch-controls .pad{position:absolute;bottom:max(8px,env(safe-area-inset-bottom));display:flex;gap:8px;pointer-events:auto}
@@ -622,8 +652,10 @@ function shellHtml(status, nonce) {
     #touch-controls .pad-right{right:max(8px,env(safe-area-inset-right));flex-direction:column}
     .ctl{width:56px;height:56px;border:2px solid rgba(255,255,255,.35);border-radius:12px;background:rgba(16,19,24,.72);color:#fff;font-size:20px;font-weight:700;touch-action:manipulation;-webkit-user-select:none;user-select:none}
     .ctl:active{background:rgba(230,99,0,.55);border-color:#e66300}
-    @media (pointer:coarse),(max-width:800px){
+    @media (max-width:800px){
       body{place-items:start center}
+    }
+    @media (hover:none) and (pointer:coarse){
       #touch-controls{display:block}
       .ctl{width:64px;height:64px}
     }
@@ -634,8 +666,7 @@ function shellHtml(status, nonce) {
     <div id="status" role="status" aria-live="polite">${message}</div>
     <div id="playfield">
       <iframe id="game" title="Pyongyang Racer" ${active ? 'src="/stream/"' : ''}
-        allow="autoplay; fullscreen; gamepad; screen-wake-lock; clipboard-read; clipboard-write"></iframe>
-      <button type="button" id="fullscreen">Full screen</button>
+        allow="autoplay; gamepad; screen-wake-lock; clipboard-read; clipboard-write"></iframe>
       <div id="touch-controls">
         <div class="pad pad-left">
           <button type="button" class="ctl" data-key="ArrowLeft" aria-label="Steer left">◀</button>
@@ -655,7 +686,6 @@ function shellHtml(status, nonce) {
     const statusNode = document.getElementById('status');
     const playfield = document.getElementById('playfield');
     const game = document.getElementById('game');
-    const fullscreenBtn = document.getElementById('fullscreen');
     const held = Object.create(null);
     const keyCodeFor = {ArrowLeft:37,ArrowRight:39,ArrowUp:38,ArrowDown:40,' ':32};
     let mode = initial.state;
@@ -702,26 +732,6 @@ function shellHtml(status, nonce) {
       btn.addEventListener('mouseleave', up);
     });
     window.addEventListener('blur', releaseAll);
-    function isFullscreen() {
-      return document.fullscreenElement === playfield || document.webkitFullscreenElement === playfield;
-    }
-    function syncFullscreenLabel() {
-      fullscreenBtn.textContent = isFullscreen() ? 'Exit full screen' : 'Full screen';
-    }
-    function exitFullscreen() {
-      const exit = document.exitFullscreen || document.webkitExitFullscreen;
-      if (exit && isFullscreen()) exit.call(document);
-    }
-    fullscreenBtn.addEventListener('click', () => {
-      if (isFullscreen()) {
-        exitFullscreen();
-        return;
-      }
-      const request = playfield.requestFullscreen || playfield.webkitRequestFullscreen;
-      if (request) request.call(playfield);
-    });
-    document.addEventListener('fullscreenchange', syncFullscreenLabel);
-    document.addEventListener('webkitfullscreenchange', syncFullscreenLabel);
     function render(data) {
       mode = data.state;
       if (data.state === 'active') {
@@ -729,7 +739,6 @@ function shellHtml(status, nonce) {
           Math.max(0, data.remainingSeconds) + ' seconds.';
         if (!game.getAttribute('src')) game.src = '/stream/';
         playfield.style.display = 'block';
-        fullscreenBtn.style.display = 'inline-block';
       } else {
         statusNode.textContent = data.message ||
           (data.reason === 'capacity' ? 'The queue is full. Please try again later.' :
@@ -738,8 +747,6 @@ function shellHtml(status, nonce) {
           'Waiting for a queue place...');
         game.removeAttribute('src');
         playfield.style.display = 'none';
-        fullscreenBtn.style.display = 'none';
-        exitFullscreen();
         releaseAll();
       }
     }
@@ -756,12 +763,12 @@ function shellHtml(status, nonce) {
         statusNode.textContent = 'Connection interrupted. Retrying...';
       }
     }
-    setInterval(update, 15000);
+    setInterval(update, 5000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) update(); });
-    if (initial.state === 'starting') {
+    if (initial.state === 'starting' || initial.state === 'waiting') {
       const startPoll = setInterval(async () => {
         await update();
-        if (mode !== 'starting') clearInterval(startPoll);
+        if (mode === 'active' || mode === 'denied' || mode === 'absent') clearInterval(startPoll);
       }, 2000);
     }
   </script>
