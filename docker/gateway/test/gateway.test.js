@@ -60,6 +60,7 @@ test('serves anonymous shell and queues visitors in order', async (t) => {
   const { server } = createGateway({
     env: testEnv,
     slots: 1,
+    maxPerIp: 1,
     upstream: `http://127.0.0.1:${upstreamPort}`,
     upstreamUser: 'private-user',
     upstreamPassword: 'private-password',
@@ -71,9 +72,10 @@ test('serves anonymous shell and queues visitors in order', async (t) => {
   const active = await request(port, '/', { headers: { 'X-Forwarded-For': '192.0.2.1' } });
   assert.equal(active.status, 200);
   assert.match(active.body, /src="\/stream\/"/);
+  assert.match(active.body, /Full screen/);
   assert.equal(active.headers['www-authenticate'], undefined);
   assert.match(active.headers['set-cookie'][0], new RegExp(`^${COOKIE_NAME}=`));
-  assert.match(active.headers['set-cookie'][0], /HttpOnly; Secure; SameSite=Lax/);
+  assert.match(active.headers['set-cookie'][0], /HttpOnly; Secure; SameSite=None; Partitioned/);
   assert.match(
     active.headers['content-security-policy'],
     /frame-ancestors 'self' https:\/\/pyongyangracer\.com/
@@ -89,7 +91,7 @@ test('serves anonymous shell and queues visitors in order', async (t) => {
 
   const duplicateIp = await request(port, '/', { headers: { 'X-Forwarded-For': '192.0.2.2' } });
   assert.equal(duplicateIp.status, 429);
-  assert.match(duplicateIp.body, /Pyongyang has more traffic now than when we made the game in 2012/);
+  assert.match(duplicateIp.body, /already has a game/);
 });
 
 test('expires silent and overlong sessions and promotes first waiter', () => {
@@ -260,6 +262,32 @@ test('admits several isolated sessions up to the slot cap', () => {
   assert.equal(queue.status('c').state, 'active');
   assert.deepEqual(stopped, ['a']);
   assert.deepEqual(started, ['a', 'b', 'c']);
+});
+
+test('allows more than one session from the same IP and recovers a lost cookie', () => {
+  const queue = new QueueManager({
+    slots: 4,
+    maxPerIp: 4,
+    runtime: {
+      start(id) {
+        return { target: `http://127.0.0.1/${id}` };
+      },
+      stop() {}
+    }
+  });
+
+  assert.equal(queue.admit('a', '192.0.2.9').state, 'active');
+  assert.equal(queue.admit('b', '192.0.2.9').state, 'active');
+  assert.equal(queue.getTarget('a'), 'http://127.0.0.1/a');
+  assert.equal(queue.getTarget('b'), 'http://127.0.0.1/b');
+
+  const recovered = queue.heartbeat('lost-cookie', '192.0.2.8');
+  assert.equal(recovered.state, 'absent');
+  queue.admit('starter', '192.0.2.8');
+  const afterCookieLoss = queue.heartbeat('new-cookie', '192.0.2.8');
+  assert.equal(afterCookieLoss.state, 'active');
+  assert.equal(queue.sessions.has('starter'), false);
+  assert.equal(queue.isActive('new-cookie'), true);
 });
 
 test('exposes a starting state until the runtime becomes ready', async () => {

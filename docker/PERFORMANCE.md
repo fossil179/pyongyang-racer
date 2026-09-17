@@ -5,14 +5,14 @@
 | Factor | Mac app | Cloud + Selkies |
 |--------|---------|-----------------|
 | CPU | Direct local execution | Flash plus video/audio encoding |
-| Display | Direct GPU → screen | Flash → Xvfb → H.264 → WebCodecs |
+| Display | Direct GPU → screen | Flash → Xvfb → H.264 or JPEG |
 | Audio | Direct output | PulseAudio → Opus → browser |
 | Input | Local keyboard/mouse | Events sent over WebSocket |
 
 ## Current profile
 
 - 760×500, 24-bit Xvfb display
-- 30 FPS H.264 software encoding
+- 30 FPS H.264 software encoding, with JPEG for browsers that lack WebCodecs (Firefox on Android)
 - 96 kbps Opus audio from `output.monitor`
 - One HTTPS/WebSocket endpoint through Caddy and the queue gateway
 - No desktop environment or window manager

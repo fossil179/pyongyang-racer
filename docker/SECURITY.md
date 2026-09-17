@@ -28,8 +28,8 @@ browse the host filesystem or launch a shell through the stream.
   turn alive; 60 seconds without one releases it. Waiting entries expire after
   five minutes without polling. Starting a private container can take up to
   two minutes before it is treated as failed.
-- The defaults allow 8 simultaneous isolated sessions, 50 waiting entries, one
-  session per client IP, and 120 queue-control requests per IP per minute.
+- The defaults allow 8 simultaneous isolated sessions, 50 waiting entries, up to
+  four sessions per client IP, and 120 queue-control requests per IP per minute.
   These values are configurable in `.env`.
 
 ### Residual risks

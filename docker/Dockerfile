@@ -1,5 +1,5 @@
 # Pyongyang Racer — real Flash Player streamed with video, audio and input.
-# Selkies uses WebSockets/WebCodecs and PulseAudio/Opus in the browser.
+# Selkies uses WebSockets with H.264/WebCodecs, JPEG for browsers without WebCodecs, and PulseAudio/Opus.
 # Ubuntu 20.04: Flash Player SA needs older libs not present on 22.04.
 FROM ubuntu:20.04
 
@@ -65,6 +65,9 @@ RUN mkdir -p /opt/flash \
 COPY ["PY Racer_0509", "/game/PY Racer_0509"]
 COPY 1.dat common.dat sound.dat symbol.dat common.txt info.txt PreGame.mp3 /game/
 COPY photo /game/photo
+# The original title loop autoplays on the menu. Streamed sessions use silence
+# so a browser tab does not start playing music before the player is ready.
+COPY docker/silent-pregame.mp3 /game/PreGame.mp3
 
 COPY docker/entrypoint.sh /entrypoint.sh
 COPY docker/start-pulseaudio.sh /docker/start-pulseaudio.sh

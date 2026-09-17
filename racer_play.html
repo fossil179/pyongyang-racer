@@ -18,12 +18,26 @@
   #leftcolumn, #rightcolumn { height:700px; overflow:hidden; }
   #leftcolumn img, #rightcolumn img { height:700px; }
   #setup { width:100%; box-sizing:border-box; margin:12px 0; padding:12px; background:#eef6ff; font-size:12px; line-height:1.5; }
-  #launch { display:inline-block; margin:14px 0 6px; padding:12px 20px; border-radius:6px;
-    background:#e66300; color:#fff; font-weight:bold; text-decoration:none; font-size:14px; }
+  .game-actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:14px 0 6px; }
+  #launch, #fullscreen { display:inline-block; margin:0; padding:12px 20px; border-radius:6px;
+    background:#e66300; color:#fff; font-weight:bold; text-decoration:none; font-size:14px; border:0; cursor:pointer; font-family:inherit; }
+  #fullscreen { background:#fff; color:#e66300; border:2px solid #e66300; }
+  #play-wrap:fullscreen, #play-wrap:-webkit-full-screen {
+    width:100%; height:100%; background:#000; display:flex; flex-direction:column;
+  }
+  #play-wrap:fullscreen #game-frame, #play-wrap:-webkit-full-screen #game-frame {
+    width:100%; flex:1; height:auto; max-width:none; max-height:none; margin:0;
+  }
+  #play-wrap:fullscreen .game-actions, #play-wrap:-webkit-full-screen .game-actions {
+    position:absolute; top:12px; right:12px; z-index:5; margin:0;
+  }
+  #play-wrap:fullscreen #launch, #play-wrap:-webkit-full-screen #launch { display:none; }
   #requirements { margin-top:10px; color:#555; }
   @media (max-width:800px) {
     #setup { margin:0; font-size:14px; }
     #leftcolumn, #rightcolumn { height:auto; }
+    #game-frame, #fullscreen { display:none; }
+    #launch { display:block; text-align:center; width:100%; box-sizing:border-box; }
   }
 </style>
 </head>
@@ -34,25 +48,21 @@
   <div id="leftcolumn"><img src="racer_images/border.jpg" width="43" height="600" /></div>
   <div id="content">
     <div id="setup">
-      <h2>Play Pyongyang Racer</h2>
-      <p>
-        This version streams the original Adobe Flash game. It includes the
-        correct road, working driving physics and browser audio. Several people
-        can play at the same time. A session lasts up to 15 minutes.
-      </p>
       <div class="howto">
         <strong>Controls:</strong> Arrow keys steer, accelerate and brake.
         Space honks. On a phone, use the on-screen buttons over the game.
-        Tap or click the game once for sound.
+        Tap or click the game once for engine and horn sounds.
       </div>
-      <iframe id="game-frame" src="https://game.pyongyangracer.com/"
-        title="Play Pyongyang Racer" loading="eager"
-        allow="autoplay; fullscreen; gamepad; screen-wake-lock; clipboard-read; clipboard-write"></iframe>
-      <p>
-        <a id="launch" href="https://game.pyongyangracer.com/" target="_blank" rel="noopener">
-          Open game in a new window
-        </a>
-      </p>
+      <div id="play-wrap">
+        <iframe id="game-frame" title="Play Pyongyang Racer" loading="eager" allowfullscreen
+          allow="autoplay; fullscreen; gamepad; screen-wake-lock; clipboard-read; clipboard-write"></iframe>
+        <p class="game-actions">
+          <button type="button" id="fullscreen">Full screen</button>
+          <a id="launch" href="https://game.pyongyangracer.com/" target="_blank" rel="noopener">
+            Play on this device
+          </a>
+        </p>
+      </div>
       <p id="requirements">
         Works in a current Chrome, Edge, Firefox or Safari browser on phones,
         tablets and computers. If every session is taken, this page keeps your
@@ -76,5 +86,33 @@
   <div id="footer"><span class="a">| Pyongyang Racer — original Flash streamed with Selkies |</span></div>
 </div>
 <script src="share.js"></script>
+<script>
+  (function () {
+    var frame = document.getElementById("game-frame");
+    var wrap = document.getElementById("play-wrap");
+    var fullscreen = document.getElementById("fullscreen");
+    if (frame && window.matchMedia("(min-width: 801px)").matches) {
+      frame.src = "https://game.pyongyangracer.com/";
+    }
+    if (!wrap || !fullscreen) return;
+    function isFull() {
+      return document.fullscreenElement === wrap || document.webkitFullscreenElement === wrap;
+    }
+    function label() {
+      fullscreen.textContent = isFull() ? "Exit full screen" : "Full screen";
+    }
+    fullscreen.addEventListener("click", function () {
+      if (isFull()) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        return;
+      }
+      var request = wrap.requestFullscreen || wrap.webkitRequestFullscreen;
+      if (request) request.call(wrap);
+    });
+    document.addEventListener("fullscreenchange", label);
+    document.addEventListener("webkitfullscreenchange", label);
+  })();
+</script>
+<!-- Cloudflare Web Analytics --><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "5bf2b3ce92aa4b67ae2f5578e577631f"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>

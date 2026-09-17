@@ -199,6 +199,7 @@ class QueueManager {
     this.startTimeoutMs = options.startTimeoutMs || 120_000;
     this.capacity = options.capacity || 50;
     this.slots = options.slots || 1;
+    this.maxPerIp = options.maxPerIp || 4;
     this.runtime = options.runtime || immediateRuntime(options.defaultTarget || 'http://127.0.0.1:9');
     this.entries = new Map();
     this.queue = [];
@@ -320,14 +321,50 @@ class QueueManager {
     }
   }
 
-  ipInUse(id, ip) {
+  ipCount(ip, exceptId) {
+    let count = 0;
     for (const session of this.sessions.values()) {
-      if (session.id !== id && session.ip === ip) return true;
+      if (session.id !== exceptId && session.ip === ip) count += 1;
     }
-    return this.queue.some((queuedId) => {
-      const queued = this.entries.get(queuedId);
-      return queuedId !== id && queued?.ip === ip;
+    for (const queuedId of this.queue) {
+      if (queuedId === exceptId) continue;
+      if (this.entries.get(queuedId)?.ip === ip) count += 1;
+    }
+    return count;
+  }
+
+  sessionsForIp(ip) {
+    return [...this.sessions.values()].filter((session) => session.ip === ip);
+  }
+
+  rebind(session, newId) {
+    const oldId = session.id;
+    if (oldId === newId) return session;
+    this.sessions.delete(oldId);
+    this.entries.delete(oldId);
+    this.queue = this.queue.filter((id) => id !== oldId);
+    session.id = newId;
+    const now = this.now();
+    session.lastHeartbeat = now;
+    this.sessions.set(newId, session);
+    this.entries.set(newId, {
+      id: newId,
+      ip: session.ip,
+      joinedAt: session.startedAt,
+      lastSeen: now,
+      attempts: session.attempts
     });
+    return session;
+  }
+
+  recoverIdentity(id, ip, options = {}) {
+    const existing = this.sessionsForIp(ip);
+    const starting = existing.find((session) => session.state === 'starting');
+    if (starting) return this.rebind(starting, id);
+    if (options.fromHeartbeat && existing.length === 1) {
+      return this.rebind(existing[0], id);
+    }
+    return null;
   }
 
   admit(id, ip) {
@@ -348,7 +385,12 @@ class QueueManager {
       return this.status(id);
     }
 
-    if (this.ipInUse(id, ip)) return { state: 'denied', reason: 'ip_limit' };
+    const recovered = this.recoverIdentity(id, ip);
+    if (recovered) return this.status(id);
+
+    if (this.ipCount(ip, id) >= this.maxPerIp) {
+      return { state: 'denied', reason: 'ip_limit' };
+    }
 
     if (this.usedSlots() < this.slots) {
       this.begin(id, ip);
@@ -363,8 +405,9 @@ class QueueManager {
     return this.status(id);
   }
 
-  heartbeat(id) {
+  heartbeat(id, ip) {
     this.maintain();
+    if (!this.sessions.has(id) && ip) this.recoverIdentity(id, ip, { fromHeartbeat: true });
     const session = this.sessions.get(id);
     if (!session) return this.status(id);
     session.lastHeartbeat = this.now();
@@ -494,7 +537,7 @@ function clientIp(req, trustProxy) {
 }
 
 function cookieHeader(id) {
-  return `${COOKIE_NAME}=${id}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`;
+  return `${COOKIE_NAME}=${id}; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=86400`;
 }
 
 function allowedEmbedOrigins(value) {
@@ -549,7 +592,7 @@ function shellHtml(status, nonce) {
       status.reason === 'capacity'
         ? 'The queue is full. Please try again later.'
         : status.reason === 'ip_limit'
-          ? 'Pyongyang has more traffic now than when we made the game in 2012.'
+          ? 'This connection already has a game. Wait a few seconds and reload, or open the game in a new window.'
           : 'Please wait while your queue place is prepared.'
     );
   const initialStatus = JSON.stringify(status).replaceAll('<', '\\u003c');
@@ -568,6 +611,10 @@ function shellHtml(status, nonce) {
     #status{padding:.75rem .5rem;font-size:1.05rem}
     #playfield{position:relative;display:${active ? 'block' : 'none'};width:min(100%,760px);margin:0 auto;background:#000}
     #game{display:block;width:100%;height:auto;aspect-ratio:760/500;border:0;background:#000}
+    #fullscreen{display:none;position:absolute;top:8px;right:8px;z-index:4;padding:.45rem .8rem;border:0;border-radius:8px;background:rgba(230,99,0,.92);color:#fff;font:inherit;font-weight:700;cursor:pointer;pointer-events:auto}
+    #playfield:fullscreen,#playfield:-webkit-full-screen{width:100%;height:100%;max-width:none;display:flex;align-items:center;justify-content:center;background:#000}
+    #playfield:fullscreen #game,#playfield:-webkit-full-screen #game{width:min(100vw,calc(100vh * 760 / 500));height:min(100vh,calc(100vw * 500 / 760));aspect-ratio:760/500}
+    #playfield:fullscreen #fullscreen,#playfield:-webkit-full-screen #fullscreen{display:inline-block}
     .note{color:#aeb7c4;font-size:.9rem;margin:.75rem .5rem}
     #touch-controls{display:none;position:absolute;inset:0;pointer-events:none;z-index:3}
     #touch-controls .pad{position:absolute;bottom:max(8px,env(safe-area-inset-bottom));display:flex;gap:8px;pointer-events:auto}
@@ -588,6 +635,7 @@ function shellHtml(status, nonce) {
     <div id="playfield">
       <iframe id="game" title="Pyongyang Racer" ${active ? 'src="/stream/"' : ''}
         allow="autoplay; fullscreen; gamepad; screen-wake-lock; clipboard-read; clipboard-write"></iframe>
+      <button type="button" id="fullscreen">Full screen</button>
       <div id="touch-controls">
         <div class="pad pad-left">
           <button type="button" class="ctl" data-key="ArrowLeft" aria-label="Steer left">◀</button>
@@ -600,13 +648,14 @@ function shellHtml(status, nonce) {
         </div>
       </div>
     </div>
-    <p class="note">Keep this page open to retain your place. On a phone, use the on-screen buttons. Click or tap the game once for sound.</p>
+    <p class="note">Keep this page open to retain your place. On a phone, use the on-screen buttons. Tap the game once for engine and horn sounds.</p>
   </main>
   <script nonce="${nonce}">
     const initial = ${initialStatus};
     const statusNode = document.getElementById('status');
     const playfield = document.getElementById('playfield');
     const game = document.getElementById('game');
+    const fullscreenBtn = document.getElementById('fullscreen');
     const held = Object.create(null);
     const keyCodeFor = {ArrowLeft:37,ArrowRight:39,ArrowUp:38,ArrowDown:40,' ':32};
     let mode = initial.state;
@@ -653,6 +702,26 @@ function shellHtml(status, nonce) {
       btn.addEventListener('mouseleave', up);
     });
     window.addEventListener('blur', releaseAll);
+    function isFullscreen() {
+      return document.fullscreenElement === playfield || document.webkitFullscreenElement === playfield;
+    }
+    function syncFullscreenLabel() {
+      fullscreenBtn.textContent = isFullscreen() ? 'Exit full screen' : 'Full screen';
+    }
+    function exitFullscreen() {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit && isFullscreen()) exit.call(document);
+    }
+    fullscreenBtn.addEventListener('click', () => {
+      if (isFullscreen()) {
+        exitFullscreen();
+        return;
+      }
+      const request = playfield.requestFullscreen || playfield.webkitRequestFullscreen;
+      if (request) request.call(playfield);
+    });
+    document.addEventListener('fullscreenchange', syncFullscreenLabel);
+    document.addEventListener('webkitfullscreenchange', syncFullscreenLabel);
     function render(data) {
       mode = data.state;
       if (data.state === 'active') {
@@ -660,14 +729,17 @@ function shellHtml(status, nonce) {
           Math.max(0, data.remainingSeconds) + ' seconds.';
         if (!game.getAttribute('src')) game.src = '/stream/';
         playfield.style.display = 'block';
+        fullscreenBtn.style.display = 'inline-block';
       } else {
         statusNode.textContent = data.message ||
           (data.reason === 'capacity' ? 'The queue is full. Please try again later.' :
-          data.reason === 'ip_limit' ? 'Pyongyang has more traffic now than when we made the game in 2012.' :
+          data.reason === 'ip_limit' ? 'This connection already has a game. Wait a few seconds and reload, or open the game in a new window.' :
           data.state === 'starting' ? ${JSON.stringify(STARTING_MESSAGE)} :
           'Waiting for a queue place...');
         game.removeAttribute('src');
         playfield.style.display = 'none';
+        fullscreenBtn.style.display = 'none';
+        exitFullscreen();
         releaseAll();
       }
     }
@@ -735,6 +807,7 @@ function createGateway(options = {}) {
     startTimeoutMs: positiveInt(env.SESSION_START_TIMEOUT_SECONDS, 120) * 1000,
     capacity: positiveInt(env.QUEUE_CAPACITY, 50),
     slots: options.slots || positiveInt(env.SESSION_SLOTS, 8),
+    maxPerIp: options.maxPerIp || positiveInt(env.SESSION_PER_IP, 4),
     runtime,
     defaultTarget: upstream
   });
@@ -817,7 +890,7 @@ function createGateway(options = {}) {
     }
     if (url.pathname === '/api/heartbeat' && req.method === 'POST') {
       req.resume();
-      const status = queue.heartbeat(identity.id);
+      const status = queue.heartbeat(identity.id, ip);
       sendJson(res, status.state === 'absent' ? 409 : 200, status, identity);
       return;
     }

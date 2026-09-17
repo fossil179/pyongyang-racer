@@ -39,7 +39,7 @@ exec /opt/selkies/app/AppRun \
   --enable-basic-auth="${STREAM_AUTH}" \
   --basic-auth-user="${STREAM_USER}" \
   --basic-auth-password="${STREAM_PASSWORD}" \
-  --encoder=h264enc \
+  --encoder=h264enc,jpeg \
   --use-cpu=true \
   --framerate=30-30 \
   --audio-device-name=output.monitor \
