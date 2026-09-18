@@ -258,4 +258,66 @@ a:hover {
 	}
 }
 
+.score-form {
+	clear: both;
+	margin: 16px 0;
+	padding: 12px;
+	border: 1px solid #f0d0b0;
+	background: #fff8f0;
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.score-form h3 {
+	margin-bottom: 8px;
+}
+
+.score-form label {
+	display: block;
+	margin: 8px 0;
+	font-weight: bold;
+}
+
+.score-form input {
+	display: block;
+	width: 100%;
+	max-width: 280px;
+	margin-top: 4px;
+	padding: 6px 8px;
+	border: 1px solid #c9c9c9;
+	box-sizing: border-box;
+	font: inherit;
+}
+
+.score-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+}
+
+.score-grid label {
+	flex: 1 1 90px;
+}
+
+.score-grid input {
+	max-width: 100%;
+}
+
+.score-form button {
+	padding: 8px 16px;
+	border: 0;
+	border-radius: 4px;
+	background: #e66300;
+	color: #fff;
+	font: inherit;
+	font-weight: bold;
+	cursor: pointer;
+}
+
+#score-msg {
+	min-height: 1.4em;
+	color: #555;
+}
+
+
 

@@ -5,16 +5,18 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Pyongyang Racer</title>
-<meta name="description" content="The 2012 Pyongyang Racer championship list." />
+<meta name="description" content="The live Pyongyang Racer Top 10 championship list." />
 <meta property="og:title" content="Pyongyang Racer Top 10" />
-<meta property="og:description" content="The original 2012 Pyongyang Racer championship list." />
+<meta property="og:description" content="The live Pyongyang Racer championship list." />
 <meta property="og:url" content="https://pyongyangracer.com/racer_top10.html" />
 <meta property="og:image" content="https://pyongyangracer.com/racer_images/top10.png" />
 <meta name="twitter:card" content="summary" />
 <link rel="icon" type="image/png" href="favicon.png" />
 <link type="text/css" href="racer.css" rel="stylesheet" />
-
-
+<style>
+  #content, #leftcolumn, #rightcolumn { height: auto; min-height: 500px; }
+  #textbox { height: auto; min-height: 350px; }
+</style>
 </head>
 
 <body>
@@ -40,11 +42,37 @@
 		 <div id="content">
          
          <div id="textbox"> 
-           <h3>TOP 10 Championship List 2012</h3>
+           <h3>TOP 10 Championship List</h3>
            <p>&nbsp;</p>
            <hr />
            <p><img src="racer_images/top10.png" width="180" height="275" class="imageright" /></p>
-<p>&nbsp;</p>
+           <p>Finish a race, then send the name you want on the board. If the time is fast enough, it appears here.</p>
+           <p>&nbsp;</p>
+           <table id="live-top10" width="470" border="0" cellpadding="20" cellspacing="10">
+             <tr>
+               <td>Loading the current Top 10…</td>
+             </tr>
+           </table>
+           <form id="score-form" class="score-form">
+             <h3>Submit a result</h3>
+             <p>Use the same browser you raced in. Names cannot include swearing or references to the leadership.</p>
+             <label>Racer name <input id="score-name" name="name" maxlength="20" autocomplete="nickname" /></label>
+             <div class="score-grid">
+               <label>Minutes <input id="score-minutes" name="minutes" inputmode="numeric" maxlength="2" /></label>
+               <label>Seconds <input id="score-seconds" name="seconds" inputmode="numeric" maxlength="2" /></label>
+               <label>Sites 0–10 <input id="score-sites" name="sites" inputmode="numeric" maxlength="2" /></label>
+               <label>Warnings 0–3 <input id="score-warnings" name="warnings" inputmode="numeric" maxlength="1" /></label>
+             </div>
+             <p>
+               <button type="submit">Submit result</button>
+             </p>
+             <p id="score-msg" role="status"></p>
+           </form>
+           <p>&nbsp;</p>
+           <hr />
+           <p>&nbsp;</p>
+           <h3>Original 2012 Championship List</h3>
+           <p>&nbsp;</p>
            <table width="470" border="0" cellpadding="20" cellspacing="10">
              <tr>
                <td>1. <strong>Terminator</strong> | racing time: 10min 30s | Sites collected 9/10 | Warnings 1/3 </td>
@@ -95,6 +123,81 @@
 		 
 </div>
    <!-- End Wrapper -->
+<script>
+(function () {
+  var api = "https://game.pyongyangracer.com/api/top10";
+  var table = document.getElementById("live-top10");
+  var form = document.getElementById("score-form");
+  var message = document.getElementById("score-msg");
+
+  function rowText(entry) {
+    var warnings = entry.warnings === 0 ? "0" : (entry.warnings + "/3");
+    return entry.rank + ". <strong>" + escapeHtml(entry.name) + "</strong> | racing time: " +
+      escapeHtml(entry.timeLabel) + " | Sites collected " + entry.sites + "/10 | Warnings " + warnings;
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function render(entries) {
+    if (!entries || !entries.length) {
+      table.innerHTML = "<tr><td>No times on the board yet. Finish a race and submit your name.</td></tr>";
+      return;
+    }
+    table.innerHTML = entries.map(function (entry) {
+      return "<tr><td>" + rowText(entry) + "</td></tr>";
+    }).join("");
+  }
+
+  function loadList() {
+    return fetch(api, { cache: "no-store" }).then(function (response) {
+      return response.json();
+    }).then(function (data) {
+      render(data.entries || []);
+    }).catch(function () {
+      table.innerHTML = "<tr><td>The live list could not be loaded. Try again in a moment.</td></tr>";
+    });
+  }
+
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    message.textContent = "Sending...";
+    fetch(api, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: document.getElementById("score-name").value,
+        minutes: document.getElementById("score-minutes").value,
+        seconds: document.getElementById("score-seconds").value,
+        sites: document.getElementById("score-sites").value,
+        warnings: document.getElementById("score-warnings").value
+      })
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        data.status = response.status;
+        return data;
+      });
+    }).then(function (data) {
+      if (data.entries) render(data.entries);
+      if (data.ok) {
+        message.textContent = "You are number " + data.rank + " on the Top 10.";
+        return;
+      }
+      message.textContent = data.message || "That result was not added.";
+    }).catch(function () {
+      message.textContent = "Could not send that result. Try again.";
+    });
+  });
+
+  loadList();
+})();
+</script>
 <!-- Cloudflare Web Analytics --><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "5bf2b3ce92aa4b67ae2f5578e577631f"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>

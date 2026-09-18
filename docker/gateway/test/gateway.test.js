@@ -10,8 +10,10 @@ const {
   NEXT_MESSAGE,
   QueueManager,
   RateLimiter,
+  Leaderboard,
   createGateway
 } = require('../server');
+const { validateRacerName } = require('../name-filter');
 
 function listen(server) {
   return new Promise((resolve) => {
@@ -25,12 +27,18 @@ function close(server) {
 
 function request(port, path, options = {}) {
   return new Promise((resolve, reject) => {
+    const body = options.body;
+    const headers = { ...options.headers };
+    if (body !== undefined) {
+      headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+      headers['Content-Length'] = Buffer.byteLength(body);
+    }
     const req = http.request({
       host: '127.0.0.1',
       port,
       path,
       method: options.method || 'GET',
-      headers: options.headers || {}
+      headers
     }, (res) => {
       const chunks = [];
       res.on('data', (chunk) => chunks.push(chunk));
@@ -41,6 +49,7 @@ function request(port, path, options = {}) {
       }));
     });
     req.on('error', reject);
+    if (body !== undefined) req.write(body);
     req.end();
   });
 }
@@ -73,6 +82,7 @@ test('serves anonymous shell and queues visitors in order', async (t) => {
   assert.equal(active.status, 200);
   assert.match(active.body, /src="\/stream\/"/);
   assert.doesNotMatch(active.body, /Full screen/);
+  assert.match(active.body, /Top 10 name/);
   assert.match(active.body, /hover:none\) and \(pointer:coarse\)/);
   assert.doesNotMatch(active.body, /pointer:coarse\),\(max-width/);
   assert.equal(active.headers['www-authenticate'], undefined);
@@ -369,3 +379,119 @@ test('reports allocator health with slot usage', async (t) => {
   assert.match(health.body, /"allocator":"immediate"/);
   assert.match(health.body, /"slots":8/);
 });
+
+test('rejects swearing and leadership names and keeps ordinary racer names', () => {
+  for (const name of ['Terminator', 'Ozan', '303', 'Miss Wong', 'MacAllister Jr.', 'Marshall']) {
+    assert.equal(validateRacerName(name).ok, true, name);
+  }
+  for (const name of [
+    'fuck', 'F*ck', 'shit', 'sh1t', 'asshole', 'Kim', 'Kimberly', 'Hakim',
+    'Kim Jong Un', 'dear leader', 'supreme leader', '김정은'
+  ]) {
+    assert.equal(validateRacerName(name).ok, false, name);
+  }
+});
+
+test('keeps only the fastest ten names', () => {
+  const board = new Leaderboard();
+  for (let index = 0; index < 10; index += 1) {
+    const result = board.submit(`id-${index}`, {
+      name: `Racer ${index}`,
+      minutes: 10,
+      seconds: 30 + index,
+      sites: 8,
+      warnings: 1
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.rank, index + 1);
+  }
+  const missed = board.submit('slow', {
+    name: 'Too Slow',
+    minutes: 12,
+    seconds: 0,
+    sites: 10,
+    warnings: 0
+  });
+  assert.equal(missed.ok, false);
+  assert.equal(missed.error, 'not_ranked');
+  assert.equal(board.list().length, 10);
+  assert.equal(board.list()[0].name, 'Racer 0');
+
+  const blocked = board.submit('rude', {
+    name: 'fuck',
+    minutes: 9,
+    seconds: 0,
+    sites: 10,
+    warnings: 0
+  });
+  assert.equal(blocked.error, 'bad_name');
+});
+
+test('accepts a played session result and blocks names on the public API', async (t) => {
+  const upstream = http.createServer((_req, res) => res.end('upstream'));
+  const upstreamPort = await listen(upstream);
+  const { server } = createGateway({
+    env: testEnv,
+    slots: 1,
+    minSubmitMs: 0,
+    upstream: `http://127.0.0.1:${upstreamPort}`,
+    upstreamUser: 'private-user',
+    upstreamPassword: 'private-password',
+    trustProxy: true
+  });
+  const port = await listen(server);
+  t.after(() => Promise.all([close(server), close(upstream)]));
+
+  const listed = await request(port, '/api/top10', {
+    headers: { Origin: 'https://pyongyangracer.com' }
+  });
+  assert.equal(listed.status, 200);
+  assert.equal(listed.headers['access-control-allow-origin'], 'https://pyongyangracer.com');
+  assert.match(listed.body, /"entries":\[\]/);
+
+  const stranger = await request(port, '/api/top10', {
+    method: 'POST',
+    headers: { 'X-Forwarded-For': '192.0.2.80' },
+    body: JSON.stringify({
+      name: 'Visitor',
+      minutes: 10,
+      seconds: 30,
+      sites: 9,
+      warnings: 1
+    })
+  });
+  assert.equal(stranger.status, 403);
+  assert.match(stranger.body, /play_required/);
+
+  const shell = await request(port, '/', { headers: { 'X-Forwarded-For': '192.0.2.81' } });
+  const cookie = cookieFrom(shell);
+  const saved = await request(port, '/api/top10', {
+    method: 'POST',
+    headers: { Cookie: cookie, 'X-Forwarded-For': '192.0.2.81' },
+    body: JSON.stringify({
+      name: 'Sky Racer',
+      minutes: 10,
+      seconds: 12,
+      sites: 9,
+      warnings: 1
+    })
+  });
+  assert.equal(saved.status, 200, saved.body);
+  assert.match(saved.body, /"rank":1/);
+  assert.match(saved.body, /Sky Racer/);
+
+  const rude = await request(port, '/api/top10', {
+    method: 'POST',
+    headers: { Cookie: cookie, 'X-Forwarded-For': '192.0.2.81' },
+    body: JSON.stringify({
+      name: 'Kim',
+      minutes: 9,
+      seconds: 10,
+      sites: 10,
+      warnings: 0
+    })
+  });
+  assert.equal(rude.status, 400);
+  assert.match(rude.body, /bad_name/);
+});
+

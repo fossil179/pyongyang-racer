@@ -6,6 +6,7 @@ const http = require('node:http');
 const net = require('node:net');
 const os = require('node:os');
 const httpProxy = require('http-proxy');
+const { Leaderboard } = require('./leaderboard');
 
 const COOKIE_NAME = '__Host-racer_queue';
 const NEXT_MESSAGE = 'You are next to play.';
@@ -208,16 +209,19 @@ class QueueManager {
   constructor(options = {}) {
     this.now = options.now || Date.now;
     this.maxActiveMs = options.maxActiveMs || 15 * 60_000;
-    this.heartbeatMs = options.heartbeatMs || 60_000;
+    this.heartbeatMs = options.heartbeatMs || 300_000;
     this.waitingExpiryMs = options.waitingExpiryMs || 5 * 60_000;
     this.startTimeoutMs = options.startTimeoutMs || 120_000;
     this.capacity = options.capacity || 50;
     this.slots = options.slots || 1;
     this.maxPerIp = options.maxPerIp || 4;
     this.runtime = options.runtime || immediateRuntime(options.defaultTarget || 'http://127.0.0.1:9');
+    this.playedTtlMs = options.playedTtlMs || 24 * 60 * 60 * 1000;
+    this.minSubmitMs = options.minSubmitMs ?? 180_000;
     this.entries = new Map();
     this.queue = [];
     this.sessions = new Map();
+    this.playedUntil = new Map();
   }
 
   activeCount() {
@@ -237,10 +241,15 @@ class QueueManager {
         now - session.startedAt >= this.maxActiveMs;
       const heartbeatExpired = session.state === 'active' &&
         now - session.lastHeartbeat >= this.heartbeatMs;
+      if (session.state === 'active' &&
+          now - (session.activatedAt || session.startedAt) >= this.minSubmitMs) {
+        this.markPlayed(id);
+      }
       if (waitingTooLongToStart || turnExpired || heartbeatExpired) {
         this.reap(id);
       }
     }
+    this.sweepPlayed();
 
     this.queue = this.queue.filter((id) => {
       const entry = this.entries.get(id);
@@ -310,7 +319,8 @@ class QueueManager {
     session.handle = handle;
     session.target = handle.target;
     session.state = 'active';
-    session.lastHeartbeat = this.now();
+    session.activatedAt = this.now();
+    session.lastHeartbeat = session.activatedAt;
     console.log(`session ready id=${session.id.slice(0, 8)} target=${session.target}`);
   }
 
@@ -360,6 +370,11 @@ class QueueManager {
     session.id = newId;
     const now = this.now();
     session.lastHeartbeat = now;
+    const playedUntil = this.playedUntil.get(oldId);
+    if (playedUntil) {
+      this.playedUntil.delete(oldId);
+      this.playedUntil.set(newId, playedUntil);
+    }
     this.sessions.set(newId, session);
     this.entries.set(newId, {
       id: newId,
@@ -434,6 +449,27 @@ class QueueManager {
     this.maintain();
     const session = this.sessions.get(id);
     return session?.state === 'active' && Boolean(session.target);
+  }
+
+  markPlayed(id) {
+    this.playedUntil.set(id, this.now() + this.playedTtlMs);
+  }
+
+  sweepPlayed() {
+    const now = this.now();
+    for (const [id, until] of this.playedUntil) {
+      if (until <= now) this.playedUntil.delete(id);
+    }
+  }
+
+  canSubmit(id) {
+    this.maintain();
+    const session = this.sessions.get(id);
+    if (session?.state === 'active') {
+      const started = session.activatedAt || session.startedAt;
+      return this.now() - started >= this.minSubmitMs;
+    }
+    return (this.playedUntil.get(id) || 0) > this.now();
   }
 
   getTarget(id) {
@@ -602,15 +638,61 @@ function securityHeaders(nonce, embedOrigins) {
   };
 }
 
-function sendJson(res, statusCode, body, identity) {
+function sendJson(res, statusCode, body, identity, extraHeaders = {}) {
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
-    'X-Content-Type-Options': 'nosniff'
+    'X-Content-Type-Options': 'nosniff',
+    ...extraHeaders
   };
   if (identity?.isNew) headers['Set-Cookie'] = cookieHeader(identity.id);
   res.writeHead(statusCode, headers);
   res.end(JSON.stringify(body));
+}
+
+function corsHeaders(req, embedOrigins) {
+  const origin = req.headers.origin;
+  const headers = { Vary: 'Origin' };
+  if (typeof origin === 'string' && embedOrigins.includes(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin;
+    headers['Access-Control-Allow-Credentials'] = 'true';
+    headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS';
+    headers['Access-Control-Allow-Headers'] = 'Content-Type';
+    headers['Access-Control-Max-Age'] = '600';
+  }
+  return headers;
+}
+
+function readJson(req, limit = 2048) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > limit) {
+        const error = new Error('too_large');
+        error.statusCode = 413;
+        reject(error);
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (!chunks.length) {
+        resolve({});
+        return;
+      }
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString()));
+      } catch {
+        const error = new Error('invalid_json');
+        error.statusCode = 400;
+        reject(error);
+      }
+    });
+    req.on('error', reject);
+  });
 }
 
 function statusCodeFor(status) {
@@ -646,6 +728,16 @@ function shellHtml(status, nonce) {
     #playfield{position:relative;display:${active ? 'block' : 'none'};width:min(100%,760px);margin:0 auto;background:#000}
     #game{display:block;width:100%;height:auto;aspect-ratio:760/500;border:0;background:#000}
     .note{color:#aeb7c4;font-size:.9rem;margin:.75rem .5rem}
+    #scorebox{display:${active ? 'block' : 'none'};width:min(100%,760px);margin:12px auto 0;padding:12px;border:1px solid #2a313c;border-radius:10px;background:#161b22;text-align:left}
+    #scorebox h2{margin:0 0 8px;font-size:1rem}
+    #scorebox p{margin:0 0 10px;color:#aeb7c4;font-size:.9rem}
+    #scorebox .row{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+    #scorebox label{display:flex;flex-direction:column;gap:4px;font-size:.8rem;color:#c5ccd6}
+    #scorebox input{width:100%;min-width:0;padding:.4rem .5rem;border:1px solid #3a4452;border-radius:6px;background:#101318;color:#f4f5f7;font:inherit}
+    #scorebox .name{flex:2 1 160px}
+    #scorebox .num{flex:1 1 72px}
+    #scorebox button{padding:.55rem .9rem;border:0;border-radius:6px;background:#e66300;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+    #score-msg{margin:8px 0 0;min-height:1.2em;font-size:.9rem}
     #touch-controls{display:none;position:absolute;inset:0;pointer-events:none;z-index:3}
     #touch-controls .pad{position:absolute;bottom:max(8px,env(safe-area-inset-bottom));display:flex;gap:8px;pointer-events:auto}
     #touch-controls .pad-left{left:max(8px,env(safe-area-inset-left))}
@@ -679,6 +771,19 @@ function shellHtml(status, nonce) {
         </div>
       </div>
     </div>
+    <form id="scorebox">
+      <h2>Top 10 name</h2>
+      <p>If your finish is fast enough, this is the name that appears on the list.</p>
+      <div class="row">
+        <label class="name">Name <input id="score-name" name="name" maxlength="20" autocomplete="nickname"></label>
+        <label class="num">Minutes <input id="score-minutes" name="minutes" inputmode="numeric" maxlength="2"></label>
+        <label class="num">Seconds <input id="score-seconds" name="seconds" inputmode="numeric" maxlength="2"></label>
+        <label class="num">Sites 0-10 <input id="score-sites" name="sites" inputmode="numeric" maxlength="2"></label>
+        <label class="num">Warnings 0-3 <input id="score-warnings" name="warnings" inputmode="numeric" maxlength="1"></label>
+        <button type="submit">Submit result</button>
+      </div>
+      <p id="score-msg" role="status"></p>
+    </form>
     <p class="note">Keep this page open to retain your place. On a phone, use the on-screen buttons. Tap the game once for engine and horn sounds.</p>
   </main>
   <script nonce="${nonce}">
@@ -686,9 +791,12 @@ function shellHtml(status, nonce) {
     const statusNode = document.getElementById('status');
     const playfield = document.getElementById('playfield');
     const game = document.getElementById('game');
+    const scorebox = document.getElementById('scorebox');
+    const scoreMsg = document.getElementById('score-msg');
     const held = Object.create(null);
     const keyCodeFor = {ArrowLeft:37,ArrowRight:39,ArrowUp:38,ArrowDown:40,' ':32};
     let mode = initial.state;
+    let streamGeneration = 0;
     function sendKey(key, type) {
       const win = game.contentWindow;
       if (!win) return;
@@ -733,23 +841,60 @@ function shellHtml(status, nonce) {
     });
     window.addEventListener('blur', releaseAll);
     function render(data) {
-      mode = data.state;
       if (data.state === 'active') {
+        mode = 'active';
         statusNode.textContent = 'Your game is ready. Time remaining: ' +
           Math.max(0, data.remainingSeconds) + ' seconds.';
-        if (!game.getAttribute('src')) game.src = '/stream/';
+        const src = '/stream/?s=' + streamGeneration;
+        if (game.getAttribute('src') !== src) game.src = src;
         playfield.style.display = 'block';
-      } else {
-        statusNode.textContent = data.message ||
-          (data.reason === 'capacity' ? 'The queue is full. Please try again later.' :
-          data.reason === 'ip_limit' ? 'This connection already has a game. Wait a few seconds and reload, or open the game in a new window.' :
-          data.state === 'starting' ? ${JSON.stringify(STARTING_MESSAGE)} :
-          'Waiting for a queue place...');
-        game.removeAttribute('src');
-        playfield.style.display = 'none';
-        releaseAll();
+        scorebox.style.display = 'block';
+        return;
       }
+      if (data.state === 'absent') {
+        if (mode === 'active' || mode === 'starting') streamGeneration += 1;
+        mode = 'waiting';
+        statusNode.textContent = 'Reconnecting your game...';
+        return;
+      }
+      mode = data.state;
+      statusNode.textContent = data.message ||
+        (data.reason === 'capacity' ? 'The queue is full. Please try again later.' :
+        data.reason === 'ip_limit' ? 'This connection already has a game. Wait a few seconds and reload, or open the game in a new window.' :
+        data.state === 'starting' ? ${JSON.stringify(STARTING_MESSAGE)} :
+        'Waiting for a queue place...');
+      if (data.state === 'starting') return;
+      game.removeAttribute('src');
+      playfield.style.display = 'none';
+      scorebox.style.display = 'none';
+      releaseAll();
     }
+    scorebox.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      scoreMsg.textContent = 'Sending...';
+      try {
+        const response = await fetch('/api/top10', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: document.getElementById('score-name').value,
+            minutes: document.getElementById('score-minutes').value,
+            seconds: document.getElementById('score-seconds').value,
+            sites: document.getElementById('score-sites').value,
+            warnings: document.getElementById('score-warnings').value
+          })
+        });
+        const data = await response.json();
+        if (data.ok) {
+          scoreMsg.textContent = 'You are number ' + data.rank + ' on the Top 10.';
+          return;
+        }
+        scoreMsg.textContent = data.message || 'That result was not added.';
+      } catch (_) {
+        scoreMsg.textContent = 'Could not send that result. Try again.';
+      }
+    });
     async function update() {
       try {
         const endpoint = (mode === 'active' || mode === 'starting') ? '/api/heartbeat' : '/api/status';
@@ -809,12 +954,14 @@ function createGateway(options = {}) {
   const runtime = createSessionRuntime(env, options, upstream);
   const queue = options.queue || new QueueManager({
     maxActiveMs: positiveInt(env.MAX_ACTIVE_SECONDS, 900) * 1000,
-    heartbeatMs: positiveInt(env.HEARTBEAT_TIMEOUT_SECONDS, 60) * 1000,
+    heartbeatMs: positiveInt(env.HEARTBEAT_TIMEOUT_SECONDS, 300) * 1000,
     waitingExpiryMs: positiveInt(env.WAITING_EXPIRY_SECONDS, 300) * 1000,
     startTimeoutMs: positiveInt(env.SESSION_START_TIMEOUT_SECONDS, 120) * 1000,
     capacity: positiveInt(env.QUEUE_CAPACITY, 50),
     slots: options.slots || positiveInt(env.SESSION_SLOTS, 8),
     maxPerIp: options.maxPerIp || positiveInt(env.SESSION_PER_IP, 4),
+    minSubmitMs: options.minSubmitMs,
+    playedTtlMs: options.playedTtlMs,
     runtime,
     defaultTarget: upstream
   });
@@ -828,6 +975,11 @@ function createGateway(options = {}) {
     positiveInt(env.RATE_LIMIT_REQUESTS, 120),
     positiveInt(env.RATE_LIMIT_WINDOW_SECONDS, 60) * 1000
   );
+  const submitLimiter = options.submitLimiter || new RateLimiter(
+    positiveInt(env.TOP10_RATE_LIMIT, 8),
+    positiveInt(env.TOP10_RATE_WINDOW_SECONDS, 3600) * 1000
+  );
+  const leaderboard = options.leaderboard || new Leaderboard({ path: env.TOP10_PATH });
   const proxy = httpProxy.createProxyServer({
     target: upstream,
     ws: true,
@@ -871,6 +1023,20 @@ function createGateway(options = {}) {
       sendJson(res, 200, { status: 'ok', allocator: runtime.kind, ...queue.snapshot() });
       return;
     }
+    if (url.pathname === '/api/top10' && req.method === 'OPTIONS') {
+      res.writeHead(204, corsHeaders(req, embedOrigins));
+      res.end();
+      return;
+    }
+    if ((url.pathname === '/api/heartbeat' || url.pathname === '/api/status') && req.method === 'OPTIONS') {
+      res.writeHead(204, corsHeaders(req, embedOrigins));
+      res.end();
+      return;
+    }
+    if (url.pathname === '/api/top10' && req.method === 'GET') {
+      sendJson(res, 200, { entries: leaderboard.list() }, null, corsHeaders(req, embedOrigins));
+      return;
+    }
 
     const identity = requestIdentity(req);
     const ip = clientIp(req, trustProxy);
@@ -892,13 +1058,51 @@ function createGateway(options = {}) {
 
     if (url.pathname === '/api/status' && req.method === 'GET') {
       const status = queue.admit(identity.id, ip);
-      sendJson(res, statusCodeFor(status), status, identity);
+      sendJson(res, statusCodeFor(status), status, identity, corsHeaders(req, embedOrigins));
       return;
     }
     if (url.pathname === '/api/heartbeat' && req.method === 'POST') {
       req.resume();
       const status = queue.heartbeat(identity.id, ip);
-      sendJson(res, status.state === 'absent' ? 409 : 200, status, identity);
+      sendJson(res, status.state === 'absent' ? 409 : 200, status, identity, corsHeaders(req, embedOrigins));
+      return;
+    }
+    if (url.pathname === '/api/top10' && req.method === 'POST') {
+      const cors = corsHeaders(req, embedOrigins);
+      if (!submitLimiter.allow(ip)) {
+        sendJson(res, 429, {
+          ok: false,
+          error: 'rate_limit',
+          message: 'Please wait before submitting again.'
+        }, identity, cors);
+        return;
+      }
+      readJson(req).then((body) => {
+        if (!queue.canSubmit(identity.id)) {
+          const session = queue.sessions.get(identity.id);
+          const error = session?.state === 'active' ? 'too_soon' : 'play_required';
+          sendJson(res, 403, {
+            ok: false,
+            error,
+            message: error === 'too_soon'
+              ? 'Finish your race, then submit your result.'
+              : 'Play a race first, then submit from the same browser.'
+          }, identity, cors);
+          return;
+        }
+        const result = leaderboard.submit(identity.id, body);
+        const status = result.ok || result.error === 'not_ranked' || result.error === 'not_improved'
+          ? 200
+          : 400;
+        sendJson(res, status, result, identity, cors);
+      }).catch((error) => {
+        const status = error.statusCode === 413 ? 413 : 400;
+        sendJson(res, status, {
+          ok: false,
+          error: status === 413 ? 'too_large' : 'invalid_json',
+          message: 'That result could not be read.'
+        }, identity, cors);
+      });
       return;
     }
     if (url.pathname === '/' && (req.method === 'GET' || req.method === 'HEAD')) {
@@ -932,6 +1136,7 @@ function createGateway(options = {}) {
   const cleanup = setInterval(() => {
     queue.maintain();
     limiter.sweep();
+    submitLimiter.sweep();
   }, 10_000);
   cleanup.unref();
   server.on('close', () => {
@@ -941,7 +1146,7 @@ function createGateway(options = {}) {
       console.error('failed to stop sessions on shutdown', error);
     });
   });
-  return { server, queue, limiter, runtime };
+  return { server, queue, limiter, runtime, leaderboard };
 }
 
 async function startGateway() {
@@ -977,5 +1182,6 @@ module.exports = {
   QueueManager,
   RateLimiter,
   DockerRuntime,
+  Leaderboard,
   createGateway
 };

@@ -36,7 +36,7 @@ services:
       - TRUST_PROXY=true
       - EMBED_ORIGINS=${EMBED_ORIGINS:-https://pyongyangracer.com http://pyongyangracer.com}
       - MAX_ACTIVE_SECONDS=${MAX_ACTIVE_SECONDS:-900}
-      - HEARTBEAT_TIMEOUT_SECONDS=${HEARTBEAT_TIMEOUT_SECONDS:-60}
+      - HEARTBEAT_TIMEOUT_SECONDS=${HEARTBEAT_TIMEOUT_SECONDS:-300}
       - WAITING_EXPIRY_SECONDS=${WAITING_EXPIRY_SECONDS:-300}
       - QUEUE_CAPACITY=${QUEUE_CAPACITY:-50}
       - RATE_LIMIT_REQUESTS=${RATE_LIMIT_REQUESTS:-120}
@@ -48,10 +48,12 @@ services:
       - SESSION_SHM_SIZE_MB=${SESSION_SHM_SIZE_MB:-128}
       - SESSION_START_TIMEOUT_SECONDS=${SESSION_START_TIMEOUT_SECONDS:-120}
       - DOCKER_SOCKET=/var/run/docker.sock
+      - TOP10_PATH=/data/top10.json
     group_add:
       - ${DOCKER_GID:-0}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./gateway-data:/data
     restart: unless-stopped
     read_only: true
     cap_drop:

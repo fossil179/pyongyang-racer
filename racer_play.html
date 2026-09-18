@@ -41,6 +41,22 @@
   <div id="rightcolumn"><img src="racer_images/border2.jpg" width="43" height="600" /></div>
   <div id="footer"><span class="a">| Pyongyang Racer — original Flash streamed with Selkies |</span></div>
 </div>
+<script>
+  (function () {
+    function keepAlive() {
+      fetch("https://game.pyongyangracer.com/api/heartbeat", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store"
+      }).catch(function () {});
+    }
+    keepAlive();
+    setInterval(keepAlive, 10000);
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) keepAlive();
+    });
+  })();
+</script>
 <!-- Cloudflare Web Analytics --><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "5bf2b3ce92aa4b67ae2f5578e577631f"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>

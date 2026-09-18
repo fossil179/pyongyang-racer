@@ -6,7 +6,7 @@ ENV NODE_ENV=production \
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
-COPY server.js ./
+COPY server.js name-filter.js leaderboard.js ./
 
 USER node
 EXPOSE 8080
